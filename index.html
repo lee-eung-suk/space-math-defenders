@@ -76,8 +76,6 @@
     #touchControls, #twoPTouchHint { padding-bottom: env(safe-area-inset-bottom, 0px); }
     #touchControls { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
     #hud { padding-top: env(safe-area-inset-top, 0px); }
-    #rotateOverlay { display: none; }
-    #rotateOverlay.show { display: flex; }
     #livesContainer { font-size: clamp(.85rem, 4vw, 1.25rem); }
     #scoreText, #scoreTextP2 { font-size: clamp(.95rem, 4.2vw, 1.25rem); }
     #waveProgress { font-size: clamp(.6rem, 2.6vw, .75rem); gap: clamp(2px, 1vw, 6px); }
@@ -232,15 +230,9 @@
     <canvas id="gameCanvas"></canvas>
 </div>
 
-<!-- ============ ROTATE DEVICE HINT (mobile portrait during play) ============ -->
-<div id="rotateOverlay" class="fixed inset-0 z-[60] flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md text-center p-6 pointer-events-auto">
-    <div class="text-6xl mb-4" style="animation: float-y 1.6s ease-in-out infinite;">📱↻</div>
-    <div class="text-xl font-bold text-yellow-300 glow-text mb-2">화면을 가로로 돌려주세요!</div>
-    <p class="text-slate-300 text-sm">우주선을 더 잘 조종할 수 있어요</p>
-</div>
 
 <!-- ============ TOUCH CONTROLS (1P) ============ -->
-<div id="touchControls" class="hidden absolute bottom-4 left-0 right-0 z-30 justify-between items-center px-6 pointer-events-none md:hidden">
+<div id="touchControls" class="hidden absolute bottom-4 left-0 right-0 z-30 flex justify-between items-center px-6 pointer-events-none md:hidden">
     <div class="flex gap-3 pointer-events-auto">
         <button id="btnLeft" class="w-16 h-16 bg-slate-800/80 active:bg-cyan-600 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-2xl text-cyan-300 shadow-lg active:scale-95"><i class="fa-solid fa-arrow-left"></i></button>
         <button id="btnRight" class="w-16 h-16 bg-slate-800/80 active:bg-cyan-600 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-2xl text-cyan-300 shadow-lg active:scale-95"><i class="fa-solid fa-arrow-right"></i></button>
@@ -534,21 +526,17 @@ function refreshTitleStats() {
 function resizeCanvas() {
     canvas.width = canvas.parentElement.clientWidth;
     canvas.height = canvas.parentElement.clientHeight;
-    players.forEach(p => { p.y = canvas.height - 90; if (p.x === 0) p.x = canvas.width * p.homeRatio - p.width / 2; });
+    // 1인용 모바일 화면에서는 하단 터치 버튼(발사/좌우) 위에 우주선이 가려지지 않도록 여유를 더 둠
+    const touchControlsVisible = numPlayers === 1 && window.innerWidth < 768;
+    const bottomClearance = touchControlsVisible ? 190 : 90;
+    players.forEach(p => { p.y = canvas.height - bottomClearance; if (p.x === 0) p.x = canvas.width * p.homeRatio - p.width / 2; });
     initBackgroundStars();
-    updateRotateHint();
 }
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
 
-/* ---------------- Rotate-device hint (mobile portrait, in-game only) ---------------- */
-function updateRotateHint() {
-    const overlay = document.getElementById('rotateOverlay');
-    if (!overlay) return;
-    const inGame = isPlaying && !isPaused && !document.getElementById('hud').classList.contains('hidden');
-    const tooNarrowPortrait = window.innerWidth < window.innerHeight && window.innerWidth < 720;
-    overlay.classList.toggle('show', inGame && tooNarrowPortrait);
-}
+/* 세로 모드도 정식으로 지원하므로 더 이상 가로 회전을 강제하지 않음(호출부는 남겨둔 안전한 no-op) */
+function updateRotateHint() {}
 function initBackgroundStars() {
     backgroundStars = [];
     const count = Math.floor((canvas.width * canvas.height) / 3000);
