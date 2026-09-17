@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>우주 수학 방어대 - 초등 1학년 덧셈 뺄셈 슈팅게임</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -46,6 +46,46 @@
     .scanline-hide::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     .credit-tag { letter-spacing: .5px; }
     .hidden-force { display: none !important; }
+
+    /* ---- Responsive helpers ---- */
+    .ship-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: .6rem; }
+    .title-text { font-size: clamp(1.6rem, 8.5vw, 3rem); }
+    .mascot-wrap { z-index: 5; }
+    .speech-bubble {
+        background: #fff; color: #0f172a; font-size: .65rem; font-weight: 700;
+        padding: 5px 9px; border-radius: 14px; white-space: nowrap; margin-bottom: 2px;
+        box-shadow: 0 3px 0 rgba(0,0,0,.25); position: relative;
+        animation: bubble-pop .5s cubic-bezier(.2,1.4,.4,1) .5s both;
+    }
+    .speech-bubble::after {
+        content: ''; position: absolute; bottom: -6px; right: 14px;
+        border-width: 6px 6px 0 6px; border-style: solid; border-color: #fff transparent transparent transparent;
+    }
+    @keyframes bubble-pop { 0%{transform:scale(0); opacity:0} 70%{transform:scale(1.1); opacity:1} 100%{transform:scale(1)} }
+    @media (max-width: 380px) { .speech-bubble { display: none; } }
+    @keyframes wobble { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-2deg)} 75%{transform:rotate(2deg)} }
+    .pop-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 rgba(0,0,0,.35); }
+    .pop-btn:hover i { animation: wobble .5s ease-in-out; display: inline-block; }
+    .ship-card.selected { animation: selected-pulse 1.4s ease-in-out infinite; }
+    @keyframes selected-pulse {
+        0%,100% { box-shadow: 0 0 0 4px rgba(250,204,21,.35), 0 8px 0 rgba(0,0,0,.35); }
+        50% { box-shadow: 0 0 0 7px rgba(250,204,21,.2), 0 8px 0 rgba(0,0,0,.35); }
+    }
+    #questionText { font-size: clamp(1.15rem, 5.2vw, 2.5rem); }
+    #hud .glow-box { padding-left: clamp(.75rem, 3vw, 1.5rem); padding-right: clamp(.75rem, 3vw, 1.5rem); }
+    #touchControls, #twoPTouchHint { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    #touchControls { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+    #hud { padding-top: env(safe-area-inset-top, 0px); }
+    #rotateOverlay { display: none; }
+    #rotateOverlay.show { display: flex; }
+    #livesContainer { font-size: clamp(.85rem, 4vw, 1.25rem); }
+    #scoreText, #scoreTextP2 { font-size: clamp(.95rem, 4.2vw, 1.25rem); }
+    #waveProgress { font-size: clamp(.6rem, 2.6vw, .75rem); gap: clamp(2px, 1vw, 6px); }
+    @media (max-width: 480px) {
+        .pop-card { border-width: 4px; }
+        #hud > div:first-child { padding-left: .5rem; padding-right: .5rem; gap: .35rem; }
+        #hud #soundBtn, #hud button[onclick="pauseGame()"] { width: 2rem; height: 2rem; }
+    }
 </style>
 </head>
 <body class="bg-space flex flex-col items-center justify-between min-h-screen relative overflow-hidden select-none">
@@ -53,7 +93,11 @@
 <!-- ============ TITLE ============ -->
 <div id="startScreen" class="absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
     <div class="max-w-md w-full pop-card bg-gradient-to-b from-indigo-950 to-slate-950 p-6 text-center bounce-in">
-        <div class="text-5xl mb-1 text-yellow-300 glow-text float-y">🚀 우주 수학 방어대</div>
+        <div class="mascot-wrap absolute -top-9 -right-2 sm:-right-6 flex flex-col items-center pointer-events-none">
+            <div class="speech-bubble">안녕! 같이 별을 구하자! 🚀</div>
+            <div class="text-5xl float-y" style="animation-delay:.4s">🌟</div>
+        </div>
+        <div class="title-text mb-1 text-yellow-300 glow-text float-y whitespace-nowrap">🚀 우주 수학 방어대</div>
         <p class="text-sky-300 text-base mb-5">덧셈 뺄셈으로 우주를 지켜라!</p>
         <div class="space-y-3">
             <button onclick="goModeSelect()" class="w-full py-4 px-4 bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold text-2xl pop-btn flex items-center justify-center gap-3 border-b-4 border-teal-800">
@@ -105,7 +149,7 @@
             <button onclick="setHangarPlayer(2)" id="hangarTabP2" class="flex-1 py-2 rounded-xl font-bold pop-btn bg-pink-600 border-b-4 border-pink-900">P2 기체</button>
         </div>
 
-        <div id="shipList" class="grid grid-cols-2 gap-3 mb-4"></div>
+        <div id="shipList" class="ship-grid mb-4"></div>
 
         <div class="text-lg text-emerald-300 font-bold mb-2">🔧 업그레이드</div>
         <div id="upgradeList" class="space-y-2 mb-4"></div>
@@ -124,13 +168,13 @@
         <p class="text-slate-400 text-sm mb-4">행성 5개를 지나며 보스를 물리쳐요</p>
         <div class="space-y-3">
             <button onclick="startRun('add10')" class="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-teal-800">
-                <i class="fa-solid fa-plus text-2xl"></i><span>1단계: 10 이하의 덧셈</span>
+                <i class="fa-solid fa-plus text-2xl"></i><span>1단계: 세 수의 덧셈</span>
             </button>
             <button onclick="startRun('sub10')" class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-indigo-800">
-                <i class="fa-solid fa-minus text-2xl"></i><span>2단계: 10 이하의 뺄셈</span>
+                <i class="fa-solid fa-minus text-2xl"></i><span>2단계: 세 수의 뺄셈</span>
             </button>
             <button onclick="startRun('mix20')" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-pink-800">
-                <i class="fa-solid fa-star text-2xl"></i><span>3단계: 20 이하의 덧셈과 뺄셈</span>
+                <i class="fa-solid fa-star text-2xl"></i><span>3단계: 세 수의 덧셈과 뺄셈</span>
             </button>
         </div>
         <button onclick="showScreen('hangarScreen')" class="mt-5 text-slate-400 text-sm underline">← 격납고로</button>
@@ -168,10 +212,10 @@
         <span id="comboText" class="text-sm font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500">🔥 2연속!</span>
     </div>
 
-    <div class="mt-2 pointer-events-auto">
-        <div class="glow-box bg-slate-900/95 px-6 py-2 rounded-2xl flex items-center justify-center gap-3 border-2 border-cyan-400 shadow-2xl">
-            <span class="text-slate-300 text-sm md:text-base font-bold">문제:</span>
-            <span id="questionText" class="text-2xl md:text-4xl font-extrabold text-yellow-300 tracking-wider glow-text">5 + 3 = ?</span>
+    <div class="mt-2 pointer-events-auto max-w-[96vw]">
+        <div class="glow-box bg-slate-900/95 px-3 sm:px-6 py-2 rounded-2xl flex items-center justify-center gap-2 sm:gap-3 border-2 border-cyan-400 shadow-2xl">
+            <span class="text-slate-300 text-xs sm:text-base font-bold shrink-0">문제:</span>
+            <span id="questionText" class="font-extrabold text-yellow-300 tracking-wider glow-text whitespace-nowrap">5 + 3 = ?</span>
         </div>
     </div>
 
@@ -186,6 +230,13 @@
 <!-- ============ CANVAS ============ -->
 <div id="gameContainer" class="relative w-full h-full flex-grow">
     <canvas id="gameCanvas"></canvas>
+</div>
+
+<!-- ============ ROTATE DEVICE HINT (mobile portrait during play) ============ -->
+<div id="rotateOverlay" class="fixed inset-0 z-[60] flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md text-center p-6 pointer-events-auto">
+    <div class="text-6xl mb-4" style="animation: float-y 1.6s ease-in-out infinite;">📱↻</div>
+    <div class="text-xl font-bold text-yellow-300 glow-text mb-2">화면을 가로로 돌려주세요!</div>
+    <p class="text-slate-300 text-sm">우주선을 더 잘 조종할 수 있어요</p>
 </div>
 
 <!-- ============ TOUCH CONTROLS (1P) ============ -->
@@ -223,7 +274,7 @@
         <div class="text-3xl font-extrabold text-yellow-300 glow-text mb-1">우주를 구했어요!</div>
         <p class="text-slate-300 mb-4">모든 행성의 보스를 물리쳤어요!</p>
         <div class="bg-slate-800 rounded-2xl p-4 mb-5 border border-slate-700 space-y-1 text-left">
-            <div class="flex justify-between"><span class="text-slate-400">최종 점수</span><span id="victoryScore" class="font-bold text-yellow-300">0</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">최종 점수:</span><span id="victoryScore" class="font-bold text-yellow-300">0</span></div>
             <div class="flex justify-between"><span class="text-slate-400">획득한 별</span><span id="victoryStars" class="font-bold text-emerald-300">0</span></div>
         </div>
         <button onclick="showMenu()" class="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-extrabold text-lg pop-btn border-b-4 border-amber-800">처음으로</button>
@@ -294,13 +345,18 @@ let save = loadSave();
 
 /* ---------------- Config: Ships ---------------- */
 const SHIPS = [
-    { id: 'rocket', name: '꼬마로켓', desc: '균형잡힌 기본 기체', cost: 0, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: null, colors: { body:'#38bdf8', wing:'#e11d48', glow:'rgba(56,189,248,.7)' } },
+    { id: 'rocket', name: '꼬마로켓', desc: '균형 잡힌 기본 기체', cost: 0, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: null, colors: { body:'#38bdf8', wing:'#e11d48', glow:'rgba(56,189,248,.7)' } },
     { id: 'jet',    name: '번개 제트기', desc: '빠른 이동 + 빠른 연사', cost: 30, baseSpeed: 11, baseFireRate: 180, baseBulletW: 6, special: null, colors: { body:'#facc15', wing:'#1d4ed8', glow:'rgba(250,204,21,.7)' } },
     { id: 'saucer', name: '몽글 접시', desc: '넓은 총알, 느긋한 속도', cost: 60, baseSpeed: 6, baseFireRate: 280, baseBulletW: 15, special: null, colors: { body:'#a855f7', wing:'#7e22ce', glow:'rgba(168,85,247,.7)' } },
-    { id: 'cat',    name: '고양이 우주선', desc: '가끔 정답을 살짝 반짝여줘요', cost: 100, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: 'hint', colors: { body:'#fb923c', wing:'#f472b6', glow:'rgba(251,146,60,.7)' } },
-    { id: 'dragon', name: '드래곤 파이터', desc: '총알이 두 줄기로 나가요', cost: 150, baseSpeed: 8, baseFireRate: 220, baseBulletW: 8, special: 'double', colors: { body:'#34d399', wing:'#059669', glow:'rgba(52,211,153,.7)' } }
+    { id: 'cat',    name: '고양이 우주선', desc: '가끔 정답을 살짝 반짝여 줘요', cost: 100, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: 'hint', colors: { body:'#fb923c', wing:'#f472b6', glow:'rgba(251,146,60,.7)' } },
+    { id: 'dragon', name: '드래곤 파이터', desc: '총알이 한 번에 두 발씩 나가요', cost: 150, baseSpeed: 8, baseFireRate: 220, baseBulletW: 8, special: 'double', colors: { body:'#34d399', wing:'#059669', glow:'rgba(52,211,153,.7)' } }
 ];
 function getShip(id) { return SHIPS.find(s => s.id === id) || SHIPS[0]; }
+/* 숫자 뒤 조사 '로/으로' 자동 선택 (한국어 숫자 발음 기준: 2,4,5,9로 끝나면 '로', 그 외엔 '으로') */
+function withYuro(num) {
+    const vowelEndDigits = [2, 4, 5, 9];
+    return vowelEndDigits.includes(num % 10) ? `${num}로` : `${num}으로`;
+}
 
 /* ---------------- Config: Upgrades ---------------- */
 const UPGRADES = [
@@ -447,7 +503,7 @@ let isPlaying = false, isPaused = false;
 let animationFrameId = null;
 
 let run = null;          // current run state (see startRun)
-let currentQuestion = { num1: 0, num2: 0, operator: '+', answer: 0 };
+let currentQuestion = { num1: 0, num2: 0, num3: 0, op1: '+', op2: '+', answer: 0 };
 
 let players = [];        // active player entities
 let bullets = [];
@@ -480,8 +536,19 @@ function resizeCanvas() {
     canvas.height = canvas.parentElement.clientHeight;
     players.forEach(p => { p.y = canvas.height - 90; if (p.x === 0) p.x = canvas.width * p.homeRatio - p.width / 2; });
     initBackgroundStars();
+    updateRotateHint();
 }
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
+
+/* ---------------- Rotate-device hint (mobile portrait, in-game only) ---------------- */
+function updateRotateHint() {
+    const overlay = document.getElementById('rotateOverlay');
+    if (!overlay) return;
+    const inGame = isPlaying && !isPaused && !document.getElementById('hud').classList.contains('hidden');
+    const tooNarrowPortrait = window.innerWidth < window.innerHeight && window.innerWidth < 720;
+    overlay.classList.toggle('show', inGame && tooNarrowPortrait);
+}
 function initBackgroundStars() {
     backgroundStars = [];
     const count = Math.floor((canvas.width * canvas.height) / 3000);
@@ -540,7 +607,7 @@ function renderHangar() {
             <div class="text-[10px] text-slate-400 mb-2 h-7">${ship.desc}</div>
             ${unlocked
                 ? `<div class="text-[11px] ${isSelected ? 'text-yellow-300 font-bold' : 'text-emerald-400'}">${isSelected ? '선택됨 ✓' : '탭해서 선택'}</div>`
-                : `<div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-star text-yellow-400"></i>${ship.cost}로 해금</div>`}
+                : `<div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-star text-yellow-400"></i>${withYuro(ship.cost)} 해금</div>`}
         `;
         card.onclick = () => {
             if (!unlocked) {
@@ -633,6 +700,7 @@ function startRun(difficulty) {
 
     isPlaying = true; isPaused = false;
     cancelAnimationFrame(animationFrameId);
+    updateRotateHint();
     music.play('stage');
     gameLoop();
 }
@@ -650,32 +718,52 @@ function makePlayer(id, shipId, homeRatio) {
 }
 
 /* ---------------- Math question generation (원본 로직 유지) ---------------- */
+/* 초등 1학년 2학기 "세 수의 덧셈과 뺄셈" — 숫자 3개, 연산 2번.
+   add10: 세 수의 덧셈(받아올림 없이, 합 9 이하) / sub10: 세 수의 뺄셈(받아내림 없이, 중간값 항상 0 이상)
+   mix20: 세 수의 덧셈과 뺄셈 혼합(20 이하) */
 function generateMathQuestion(mode) {
-    let n1 = 0, n2 = 0, op = '+', ans = 0;
+    let n1 = 0, n2 = 0, n3 = 0, op1 = '+', op2 = '+', ans = 0;
     if (mode === 'add10') {
-        ans = Math.floor(Math.random() * 9) + 2;
-        n1 = Math.floor(Math.random() * (ans - 1)) + 1;
-        n2 = ans - n1; op = '+';
+        // 세 수의 덧셈: n1+n2+n3 = ans (ans <= 9, 받아올림 없음)
+        ans = Math.floor(Math.random() * 7) + 3; // 3 ~ 9
+        n1 = Math.floor(Math.random() * (ans - 2)) + 1;
+        n2 = Math.floor(Math.random() * (ans - n1 - 1)) + 1;
+        n3 = ans - n1 - n2;
+        op1 = '+'; op2 = '+';
     } else if (mode === 'sub10') {
-        n1 = Math.floor(Math.random() * 9) + 2;
+        // 세 수의 뺄셈: n1-n2-n3 = ans (모든 중간값 0 이상, 받아내림 없음)
+        n1 = Math.floor(Math.random() * 6) + 4; // 4 ~ 9
         n2 = Math.floor(Math.random() * (n1 - 1)) + 1;
-        op = '-'; ans = n1 - n2;
+        const mid = n1 - n2;
+        n3 = Math.floor(Math.random() * mid) + 1;
+        ans = mid - n3;
+        op1 = '-'; op2 = '-';
     } else {
-        const isAdd = Math.random() > 0.5;
-        if (isAdd) {
-            ans = Math.floor(Math.random() * 12) + 5;
-            n1 = Math.floor(Math.random() * (ans - 2)) + 1;
-            n2 = ans - n1; op = '+';
+        // 세 수의 덧셈과 뺄셈 혼합 (20 이하)
+        if (Math.random() > 0.5) {
+            // n1 + n2 - n3
+            n1 = Math.floor(Math.random() * 9) + 1;
+            n2 = Math.floor(Math.random() * 9) + 1;
+            const mid = n1 + n2;
+            n3 = Math.floor(Math.random() * mid) + 1;
+            ans = mid - n3;
+            op1 = '+'; op2 = '-';
         } else {
-            n1 = Math.floor(Math.random() * 12) + 6;
-            n2 = Math.floor(Math.random() * (n1 - 2)) + 1;
-            op = '-'; ans = n1 - n2;
+            // n1 - n2 + n3
+            n1 = Math.floor(Math.random() * 14) + 5; // 5 ~ 18
+            n2 = Math.floor(Math.random() * (n1 - 1)) + 1;
+            const mid = n1 - n2;
+            const n3Max = Math.max(1, Math.min(9, 20 - mid));
+            n3 = Math.floor(Math.random() * n3Max) + 1;
+            ans = mid + n3;
+            op1 = '-'; op2 = '+';
         }
     }
-    return { num1: n1, num2: n2, operator: op, answer: ans };
+    return { num1: n1, num2: n2, num3: n3, op1, op2, answer: ans };
 }
 function showQuestionText() {
-    document.getElementById('questionText').innerText = `${currentQuestion.num1} ${currentQuestion.operator} ${currentQuestion.num2} = ?`;
+    const q = currentQuestion;
+    document.getElementById('questionText').innerText = `${q.num1} ${q.op1} ${q.num2} ${q.op2} ${q.num3} = ?`;
 }
 
 const MONSTER_COLORS = [
@@ -773,6 +861,9 @@ function createExplosion(x, y, color, count) {
 }
 function spawnStarPopup(x, y) {
     particles.push({ x, y, vx: (Math.random()-0.5)*1.5, vy: -2.5, radius: 4, color: '#facc15', alpha: 1, decay: 0.02, isStar: true });
+}
+function spawnFloatText(x, y, text, color) {
+    particles.push({ x, y, vx: (Math.random()-0.5)*0.6, vy: -1.8, alpha: 1, decay: 0.018, isText: true, text, color, scale: 1 });
 }
 
 /* =====================================================================
@@ -931,6 +1022,7 @@ function grantCorrectHit(x, y, byPlayerId) {
 
     const pts = 100 + run.combo * 20;
     if (sessionMode === 'vs' && byPlayerId === 2) run.scoreP2 += pts; else run.scoreP1 += pts;
+    spawnFloatText(x, y - 20, `+${pts}`, byPlayerId === 2 ? '#f472b6' : '#4ade80');
     run.combo++; run.solvedCount++;
     if (run.combo > run.maxCombo) run.maxCombo = run.combo;
     if (run.combo > 0 && run.combo % 5 === 0) { run.starsEarned += 2; sound.playStar(); }
@@ -967,7 +1059,7 @@ function updateWaveTargets() {
                     createExplosion(target.x + target.width/2, target.y + target.height/2, '#ef4444');
                     if (sessionMode !== 'vs') run.combo = 0;
                     updateHUD();
-                    showToast('다시 생각해보세요! 💡', false);
+                    showToast('다시 생각해 보세요! 💡', false);
                     targets.splice(i, 1);
                 }
                 break;
@@ -1034,6 +1126,7 @@ function updateBoss() {
                     updateBossHpBar();
                     const pts = 150 + run.combo * 20;
                     if (sessionMode === 'vs' && bullet.owner === 2) run.scoreP2 += pts; else run.scoreP1 += pts;
+                    spawnFloatText(target.x + target.width/2, target.y + target.height/2 - 20, `+${pts}`, '#fde047');
                     run.combo++; run.solvedCount++;
                     run.starsEarned += 2;
                     if (run.combo > run.maxCombo) run.maxCombo = run.combo;
@@ -1097,7 +1190,12 @@ function render() {
 
     particles.forEach(p => {
         ctx.save(); ctx.globalAlpha = Math.max(0, p.alpha); ctx.fillStyle = p.color;
-        if (p.isStar) {
+        if (p.isText) {
+            ctx.font = 'bold 22px Jua';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
+            ctx.fillText(p.text, p.x, p.y);
+        } else if (p.isStar) {
             drawStarShape(p.x, p.y, p.radius + 3);
         } else {
             ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
@@ -1363,16 +1461,43 @@ function gameLoop() {
     render();
     if (isPlaying) animationFrameId = requestAnimationFrame(gameLoop);
 }
+
+/* ---- 메뉴 화면 뒤에도 은은하게 별이 흐르는 배경(대기 애니메이션) ---- */
+let idleRunning = false;
+function startIdleBackground() {
+    if (idleRunning) return;
+    idleRunning = true;
+    idleLoop();
+}
+function idleLoop() {
+    if (isPlaying) { idleRunning = false; return; }
+    if (canvas.width > 0 && canvas.height > 0) {
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, '#131b2e'); grad.addColorStop(1, '#05070c');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        backgroundStars.forEach(star => {
+            star.y += star.speed * (star.layer ? 0.5 : 0.25);
+            if (star.y > canvas.height) { star.y = 0; star.x = Math.random() * canvas.width; }
+            ctx.globalAlpha = star.alpha;
+            ctx.fillRect(star.x, star.y, star.size, star.size);
+        });
+        ctx.globalAlpha = 1;
+    }
+    requestAnimationFrame(idleLoop);
+}
 function pauseGame() {
     if (!isPlaying) return;
     isPaused = true;
     music.stop();
     document.getElementById('pauseScreen').classList.remove('hidden');
+    updateRotateHint();
 }
 function resumeGame() {
     isPaused = false;
     document.getElementById('pauseScreen').classList.add('hidden');
     music.play(run && run.inBoss ? 'boss' : 'stage');
+    updateRotateHint();
 }
 function showMenu() {
     isPlaying = false; isPaused = false;
@@ -1382,6 +1507,8 @@ function showMenu() {
     document.getElementById('bossHpWrap').classList.add('hidden');
     refreshTitleStats();
     showScreen('startScreen');
+    updateRotateHint();
+    startIdleBackground();
 }
 function finishVictory() {
     isPlaying = false;
@@ -1396,6 +1523,7 @@ function finishVictory() {
     document.getElementById('victoryStars').innerText = run.starsEarned;
     document.getElementById('bossHpWrap').classList.add('hidden');
     showScreen('victoryScreen');
+    updateRotateHint();
 }
 function endRun(won) {
     isPlaying = false;
@@ -1413,6 +1541,7 @@ function endRun(won) {
     document.getElementById('finalStars').innerText = `${run.starsEarned} 개`;
     document.getElementById('bossHpWrap').classList.add('hidden');
     showScreen('gameOverScreen');
+    updateRotateHint();
 }
 
 /* ---------------- Init ---------------- */
@@ -1420,6 +1549,7 @@ window.onload = function () {
     setupEventListeners();
     resizeCanvas();
     refreshTitleStats();
+    startIdleBackground();
 };
 </script>
 </body>
