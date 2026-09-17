@@ -191,6 +191,9 @@
 <div id="hud" class="hidden absolute top-0 left-0 right-0 z-20 p-2 flex flex-col items-center pointer-events-none">
     <div class="w-full max-w-2xl flex items-center justify-between px-3 py-2 bg-slate-900/80 backdrop-blur border border-slate-700 rounded-2xl pointer-events-auto">
         <div id="livesContainer" class="flex gap-1 text-xl text-red-500"></div>
+        <div id="starsRunBadge" class="flex items-center gap-1 text-xs sm:text-sm font-bold text-yellow-300">
+            <i class="fa-solid fa-star"></i><span id="starsRunText">0</span>
+        </div>
         <div id="waveProgress" class="flex items-center gap-1 text-xs text-slate-300"></div>
         <div class="text-center">
             <div class="text-[10px] text-slate-400 leading-none">점수</div>
@@ -338,10 +341,10 @@ let save = loadSave();
 /* ---------------- Config: Ships ---------------- */
 const SHIPS = [
     { id: 'rocket', name: '꼬마로켓', desc: '균형 잡힌 기본 기체', cost: 0, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: null, colors: { body:'#38bdf8', wing:'#e11d48', glow:'rgba(56,189,248,.7)' } },
-    { id: 'jet',    name: '번개 제트기', desc: '빠른 이동 + 빠른 연사', cost: 30, baseSpeed: 11, baseFireRate: 180, baseBulletW: 6, special: null, colors: { body:'#facc15', wing:'#1d4ed8', glow:'rgba(250,204,21,.7)' } },
-    { id: 'saucer', name: '몽글 접시', desc: '넓은 총알, 느긋한 속도', cost: 60, baseSpeed: 6, baseFireRate: 280, baseBulletW: 15, special: null, colors: { body:'#a855f7', wing:'#7e22ce', glow:'rgba(168,85,247,.7)' } },
-    { id: 'cat',    name: '고양이 우주선', desc: '가끔 정답을 살짝 반짝여 줘요', cost: 100, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: 'hint', colors: { body:'#fb923c', wing:'#f472b6', glow:'rgba(251,146,60,.7)' } },
-    { id: 'dragon', name: '드래곤 파이터', desc: '총알이 한 번에 두 발씩 나가요', cost: 150, baseSpeed: 8, baseFireRate: 220, baseBulletW: 8, special: 'double', colors: { body:'#34d399', wing:'#059669', glow:'rgba(52,211,153,.7)' } }
+    { id: 'jet',    name: '번개 제트기', desc: '빠른 이동 + 빠른 연사', cost: 20, baseSpeed: 11, baseFireRate: 180, baseBulletW: 6, special: null, colors: { body:'#facc15', wing:'#1d4ed8', glow:'rgba(250,204,21,.7)' } },
+    { id: 'saucer', name: '몽글 접시', desc: '넓은 총알, 느긋한 속도', cost: 35, baseSpeed: 6, baseFireRate: 280, baseBulletW: 15, special: null, colors: { body:'#a855f7', wing:'#7e22ce', glow:'rgba(168,85,247,.7)' } },
+    { id: 'cat',    name: '고양이 우주선', desc: '가끔 정답을 살짝 반짝여 줘요', cost: 55, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: 'hint', colors: { body:'#fb923c', wing:'#f472b6', glow:'rgba(251,146,60,.7)' } },
+    { id: 'dragon', name: '드래곤 파이터', desc: '총알이 한 번에 두 발씩 나가요', cost: 80, baseSpeed: 8, baseFireRate: 220, baseBulletW: 8, special: 'double', colors: { body:'#34d399', wing:'#059669', glow:'rgba(52,211,153,.7)' } }
 ];
 function getShip(id) { return SHIPS.find(s => s.id === id) || SHIPS[0]; }
 /* 숫자 뒤 조사 '로/으로' 자동 선택 (한국어 숫자 발음 기준: 2,4,5,9로 끝나면 '로', 그 외엔 '으로') */
@@ -352,11 +355,11 @@ function withYuro(num) {
 
 /* ---------------- Config: Upgrades ---------------- */
 const UPGRADES = [
-    { key: 'speed',     label: '스피드', icon: 'fa-person-running', max: 3, cost: [20, 40, 70], desc: '더 빨리 날아요' },
-    { key: 'fireRate',  label: '연사',   icon: 'fa-gun', max: 3, cost: [20, 40, 70], desc: '총알이 더 많이 나가요' },
-    { key: 'bulletSize',label: '탄 크기', icon: 'fa-expand', max: 3, cost: [20, 40, 70], desc: '총알이 커져요' },
-    { key: 'maxHearts', label: '하트',   icon: 'fa-heart', max: 2, cost: [50, 90], desc: '생명이 늘어요' },
-    { key: 'magnet',    label: '자석',   icon: 'fa-magnet', max: 3, cost: [25, 45, 75], desc: '별을 더 많이 모아요' }
+    { key: 'speed',     label: '스피드', icon: 'fa-person-running', max: 3, cost: [10, 20, 35], desc: '더 빨리 날아요' },
+    { key: 'fireRate',  label: '연사',   icon: 'fa-gun', max: 3, cost: [10, 20, 35], desc: '총알이 더 많이 나가요' },
+    { key: 'bulletSize',label: '탄 크기', icon: 'fa-expand', max: 3, cost: [10, 20, 35], desc: '총알이 커져요' },
+    { key: 'maxHearts', label: '하트',   icon: 'fa-heart', max: 2, cost: [30, 55], desc: '생명이 늘어요' },
+    { key: 'magnet',    label: '자석',   icon: 'fa-magnet', max: 3, cost: [15, 30, 50], desc: '별을 끌어당기는 힘이 세져요' }
 ];
 
 /* ---------------- Config: Planets / Bosses ---------------- */
@@ -502,6 +505,7 @@ let bullets = [];
 let targets = [];
 let bossBullets = [];
 let particles = [];
+let starPickups = [];
 let backgroundStars = [];
 let boss = null;
 
@@ -666,7 +670,7 @@ function startRun(difficulty) {
         starsEarned: 0,
         inBoss: false
     };
-    bullets = []; targets = []; bossBullets = []; particles = []; boss = null;
+    bullets = []; targets = []; bossBullets = []; particles = []; starPickups = []; boss = null;
 
     players = [];
     if (numPlayers === 1) {
@@ -847,11 +851,62 @@ function createExplosion(x, y, color, count) {
         particles.push({ x, y, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd, radius: Math.random() * 5 + 2, color, alpha: 1, decay: Math.random() * 0.03 + 0.015 });
     }
 }
-function spawnStarPopup(x, y) {
-    particles.push({ x, y, vx: (Math.random()-0.5)*1.5, vy: -2.5, radius: 4, color: '#facc15', alpha: 1, decay: 0.02, isStar: true });
-}
 function spawnFloatText(x, y, text, color) {
     particles.push({ x, y, vx: (Math.random()-0.5)*0.6, vy: -1.8, alpha: 1, decay: 0.018, isText: true, text, color, scale: 1 });
+}
+
+/* ---------------- Star pickups (적을 처치하면 실제로 떨어지는 별 아이템) ---------------- */
+function spawnStarDrop(x, y, count) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 2.5 + 1.5;
+        starPickups.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 1,
+            life: 300, maxLife: 300,
+            wobble: Math.random() * Math.PI * 2
+        });
+    }
+}
+function updateStarPickups() {
+    // 처음 잠깐 통통 튄 다음부터는 항상 플레이어 쪽으로 점점 빠르게 끌려감(화면 위쪽에서 맞혀도 끝까지 도착함).
+    // 자석 업그레이드는 끌려가는 속도를 더 빠르게 해 줌.
+    const magnetLevel = save.upgrades.magnet;
+    for (let i = starPickups.length - 1; i >= 0; i--) {
+        const s = starPickups[i];
+        s.life--;
+        s.wobble += 0.15;
+        const age = s.maxLife - s.life;
+
+        let nearestDx = 0, nearestDy = 0, nearestDist = Infinity;
+        players.forEach(p => {
+            const dx = (p.x + p.width / 2) - s.x, dy = (p.y + p.height / 2) - s.y;
+            const d = Math.hypot(dx, dy);
+            if (d < nearestDist) { nearestDist = d; nearestDx = dx; nearestDy = dy; }
+        });
+
+        if (age < 14) {
+            s.vx *= 0.92; s.vy *= 0.92; // 톡 튀어오르는 초반 연출
+        } else if (nearestDist > 4) {
+            const homingSpeed = Math.min(9.5, 1.2 + (age - 14) * (0.05 + magnetLevel * 0.03));
+            s.vx = (nearestDx / nearestDist) * homingSpeed;
+            s.vy = (nearestDy / nearestDist) * homingSpeed;
+        }
+        s.x += s.vx; s.y += s.vy;
+
+        if (nearestDist < 34) {
+            starPickups.splice(i, 1);
+            run.starsEarned++;
+            sound.playStar();
+            createExplosion(s.x, s.y, '#facc15', 5);
+            updateHUD();
+            continue;
+        }
+        if (s.life <= 0 || s.y > canvas.height + 60) {
+            starPickups.splice(i, 1);
+        }
+    }
 }
 
 /* =====================================================================
@@ -985,6 +1040,7 @@ function update() {
         if (p.isStar) p.vy += 0.03;
         if (p.alpha <= 0) particles.splice(i, 1);
     }
+    updateStarPickups();
 
     if (run.inBoss) updateBoss(); else updateWaveTargets();
 }
@@ -1003,17 +1059,14 @@ function onPlayerHit(p) {
 function grantCorrectHit(x, y, byPlayerId) {
     sound.playHitCorrect();
     createExplosion(x, y, '#38bdf8'); createExplosion(x, y, '#facc15');
-    spawnStarPopup(x, y);
-    const magnetBonus = save.upgrades.magnet;
-    const gained = 1 + Math.floor(magnetBonus / 2);
-    run.starsEarned += gained;
+    spawnStarDrop(x, y, 2); // 몬스터를 처치하면 별 2개가 아이템으로 떨어짐
 
     const pts = 100 + run.combo * 20;
     if (sessionMode === 'vs' && byPlayerId === 2) run.scoreP2 += pts; else run.scoreP1 += pts;
     spawnFloatText(x, y - 20, `+${pts}`, byPlayerId === 2 ? '#f472b6' : '#4ade80');
     run.combo++; run.solvedCount++;
     if (run.combo > run.maxCombo) run.maxCombo = run.combo;
-    if (run.combo > 0 && run.combo % 5 === 0) { run.starsEarned += 2; sound.playStar(); }
+    if (run.combo > 0 && run.combo % 5 === 0) { run.starsEarned += 3; sound.playStar(); }
 
     showToast(pickPraise(), true);
     updateHUD();
@@ -1109,14 +1162,13 @@ function updateBoss() {
                 if (target.isCorrect) {
                     sound.playBossHit();
                     createExplosion(target.x + target.width/2, target.y + target.height/2, boss.color);
-                    spawnStarPopup(target.x + target.width/2, target.y + target.height/2);
+                    spawnStarDrop(target.x + target.width/2, target.y + target.height/2, 3);
                     boss.hp--;
                     updateBossHpBar();
                     const pts = 150 + run.combo * 20;
                     if (sessionMode === 'vs' && bullet.owner === 2) run.scoreP2 += pts; else run.scoreP1 += pts;
                     spawnFloatText(target.x + target.width/2, target.y + target.height/2 - 20, `+${pts}`, '#fde047');
                     run.combo++; run.solvedCount++;
-                    run.starsEarned += 2;
                     if (run.combo > run.maxCombo) run.maxCombo = run.combo;
                     showToast(pickPraise(), true);
                     updateHUD();
@@ -1140,7 +1192,8 @@ function onBossDefeated() {
     sound.playVictory();
     createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, boss.color, 60);
     createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, '#facc15', 40);
-    run.starsEarned += 10;
+    run.starsEarned += 15; // 보스 격파는 화면 전환이 있어 아이템 대신 확정 지급
+    updateHUD();
     music.stop();
     isPaused = true;
     targets = []; bossBullets = [];
@@ -1188,6 +1241,19 @@ function render() {
         } else {
             ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
         }
+        ctx.restore();
+    });
+
+    // 별 아이템 (몬스터 처치 시 떨어지는 것)
+    starPickups.forEach(s => {
+        ctx.save();
+        const fadeIn = Math.min(1, (s.maxLife - s.life) / 10);
+        const fadeOut = Math.min(1, s.life / 40);
+        ctx.globalAlpha = Math.min(fadeIn, fadeOut);
+        ctx.fillStyle = '#facc15';
+        ctx.shadowColor = '#fde047'; ctx.shadowBlur = 12;
+        const pulse = 1 + Math.sin(s.wobble) * 0.15;
+        drawStarShape(s.x, s.y, 9 * pulse);
         ctx.restore();
     });
 
@@ -1397,6 +1463,7 @@ function pickPraise() { return PRAISE[Math.floor(Math.random() * PRAISE.length)]
 function updateHUD() {
     document.getElementById('scoreText').innerText = run.scoreP1;
     document.getElementById('scoreTextP2').innerText = run.scoreP2;
+    document.getElementById('starsRunText').innerText = run.starsEarned;
 
     const livesContainer = document.getElementById('livesContainer');
     livesContainer.innerHTML = '';
