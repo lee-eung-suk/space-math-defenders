@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>우주 수학 방어대 - 초등 1학년 덧셈 뺄셈 슈팅게임</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gamja+Flower&display=swap" rel="stylesheet">
+<style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+    body {
+        font-family: 'Jua', sans-serif; background: #0d1117; color: #fff;
+        overflow: hidden; margin: 0; padding: 0; height: 100vh; width: 100vw;
+    }
+    .bg-space { background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%); }
+    .glow-box { box-shadow: 0 0 20px rgba(56,189,248,.5), inset 0 0 10px rgba(56,189,248,.3); border: 3px solid #38bdf8; }
+    .glow-text { text-shadow: 0 0 10px rgba(255,225,100,.8), 0 0 20px rgba(255,150,0,.6); }
+    @keyframes pulse-scale { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+    .animate-pulse-fast { animation: pulse-scale .8s infinite ease-in-out; }
+    @keyframes shake { 0%,100%{transform:translate(0,0)} 20%,60%{transform:translate(-8px,0)} 40%,80%{transform:translate(8px,0)} }
+    .shake-screen { animation: shake .4s ease-in-out; }
+    #gameCanvas { display:block; width:100%; height:100%; background:transparent; }
+    /* ---- Nintendo-ish chunky UI kit ---- */
+    .pop-card {
+        border-radius: 28px; border: 5px solid #ffffff; position: relative;
+        box-shadow: 0 10px 0 rgba(0,0,0,.35), 0 18px 30px rgba(0,0,0,.45);
+    }
+    .pop-btn {
+        border-radius: 20px; border: 4px solid rgba(255,255,255,.85);
+        box-shadow: 0 6px 0 rgba(0,0,0,.35);
+        transition: transform .08s ease, box-shadow .08s ease;
+    }
+    .pop-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+    .pop-btn:disabled { opacity: .4; filter: grayscale(.4); }
+    @keyframes bounce-in { 0%{transform:scale(.4) translateY(40px); opacity:0} 60%{transform:scale(1.06) translateY(-6px); opacity:1} 100%{transform:scale(1) translateY(0)} }
+    .bounce-in { animation: bounce-in .5s cubic-bezier(.2,1.4,.4,1) both; }
+    @keyframes float-y { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    .float-y { animation: float-y 2.4s ease-in-out infinite; }
+    @keyframes twinkle { 0%,100%{opacity:.3} 50%{opacity:1} }
+    .twinkle { animation: twinkle 1.6s ease-in-out infinite; }
+    .ship-card { transition: transform .12s ease, box-shadow .12s ease; cursor: pointer; }
+    .ship-card:hover { transform: translateY(-3px); }
+    .ship-card.selected { outline: 4px solid #facc15; box-shadow: 0 0 0 4px rgba(250,204,21,.35), 0 8px 0 rgba(0,0,0,.35); }
+    .scanline-hide::-webkit-scrollbar { width: 6px; }
+    .scanline-hide::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    .credit-tag { letter-spacing: .5px; }
+    .hidden-force { display: none !important; }
+</style>
+</head>
+<body class="bg-space flex flex-col items-center justify-between min-h-screen relative overflow-hidden select-none">
+
+<!-- ============ TITLE ============ -->
+<div id="startScreen" class="absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-md w-full pop-card bg-gradient-to-b from-indigo-950 to-slate-950 p-6 text-center bounce-in">
+        <div class="text-5xl mb-1 text-yellow-300 glow-text float-y">🚀 우주 수학 방어대</div>
+        <p class="text-sky-300 text-base mb-5">덧셈 뺄셈으로 우주를 지켜라!</p>
+        <div class="space-y-3">
+            <button onclick="goModeSelect()" class="w-full py-4 px-4 bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold text-2xl pop-btn flex items-center justify-center gap-3 border-b-4 border-teal-800">
+                <i class="fa-solid fa-play"></i><span>게임 시작</span>
+            </button>
+            <button onclick="openHangarFromTitle()" class="w-full py-3 px-4 bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold text-lg pop-btn flex items-center justify-center gap-3 border-b-4 border-indigo-900">
+                <i class="fa-solid fa-rocket"></i><span>격납고 (기체·업그레이드)</span>
+            </button>
+        </div>
+        <div class="mt-4 bg-slate-800/80 rounded-xl p-3 text-xs text-slate-300 text-left border border-slate-700 flex items-center gap-3">
+            <i class="fa-solid fa-star text-yellow-400 text-lg"></i>
+            <div>모은 별: <b id="titleStars" class="text-yellow-300">0</b>개 &nbsp;|&nbsp; 최고 점수: <b id="titleHighScore" class="text-emerald-300">0</b>점</div>
+        </div>
+        <div class="mt-3 text-[11px] text-slate-500 credit-tag">제작자 &middot; 소천초 1학년 최성훈</div>
+    </div>
+</div>
+
+<!-- ============ MODE SELECT ============ -->
+<div id="modeScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-md w-full pop-card bg-gradient-to-b from-indigo-950 to-slate-950 p-6 text-center bounce-in">
+        <div class="text-2xl text-cyan-300 font-bold mb-4">👫 누구랑 할까요?</div>
+        <div class="space-y-3">
+            <button onclick="chooseMode('solo')" class="w-full py-4 px-4 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-blue-900">
+                <i class="fa-solid fa-user-astronaut"></i><span>1인 플레이</span>
+            </button>
+            <button onclick="chooseMode('coop')" class="w-full py-4 px-4 bg-gradient-to-r from-emerald-400 to-green-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-green-900">
+                <i class="fa-solid fa-people-arrows"></i><span>2인 협동</span>
+            </button>
+            <button onclick="chooseMode('vs')" class="w-full py-4 px-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-rose-900">
+                <i class="fa-solid fa-bolt"></i><span>2인 대결</span>
+            </button>
+        </div>
+        <button onclick="showScreen('startScreen')" class="mt-5 text-slate-400 text-sm underline">← 처음으로</button>
+    </div>
+</div>
+
+<!-- ============ HANGAR ============ -->
+<div id="hangarScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-3 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-lg w-full pop-card bg-gradient-to-b from-slate-900 to-slate-950 p-5 bounce-in max-h-[92vh] overflow-y-auto scanline-hide">
+        <div class="flex items-center justify-between mb-3">
+            <div class="text-2xl text-cyan-300 font-bold">🛰️ 격납고</div>
+            <div class="flex items-center gap-2 bg-slate-800 rounded-full px-3 py-1 border border-yellow-500/50">
+                <i class="fa-solid fa-star text-yellow-400"></i><span id="hangarStars" class="font-bold text-yellow-300">0</span>
+            </div>
+        </div>
+
+        <div id="hangarPlayerTabs" class="hidden flex gap-2 mb-3">
+            <button onclick="setHangarPlayer(1)" id="hangarTabP1" class="flex-1 py-2 rounded-xl font-bold pop-btn bg-sky-600 border-b-4 border-sky-900">P1 기체</button>
+            <button onclick="setHangarPlayer(2)" id="hangarTabP2" class="flex-1 py-2 rounded-xl font-bold pop-btn bg-pink-600 border-b-4 border-pink-900">P2 기체</button>
+        </div>
+
+        <div id="shipList" class="grid grid-cols-2 gap-3 mb-4"></div>
+
+        <div class="text-lg text-emerald-300 font-bold mb-2">🔧 업그레이드</div>
+        <div id="upgradeList" class="space-y-2 mb-4"></div>
+
+        <div class="flex gap-2">
+            <button onclick="hangarBack()" class="flex-1 py-3 bg-slate-700 pop-btn font-bold border-b-4 border-slate-900">← 뒤로</button>
+            <button id="hangarNextBtn" onclick="hangarConfirm()" class="flex-1 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 pop-btn font-extrabold border-b-4 border-orange-800">다음 →</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ DIFFICULTY SELECT ============ -->
+<div id="difficultyScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-md w-full pop-card bg-gradient-to-b from-indigo-950 to-slate-950 p-6 text-center bounce-in">
+        <div class="text-2xl text-cyan-300 font-bold mb-1">🌌 어느 별로 떠날까요?</div>
+        <p class="text-slate-400 text-sm mb-4">행성 5개를 지나며 보스를 물리쳐요</p>
+        <div class="space-y-3">
+            <button onclick="startRun('add10')" class="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-teal-800">
+                <i class="fa-solid fa-plus text-2xl"></i><span>1단계: 10 이하의 덧셈</span>
+            </button>
+            <button onclick="startRun('sub10')" class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-indigo-800">
+                <i class="fa-solid fa-minus text-2xl"></i><span>2단계: 10 이하의 뺄셈</span>
+            </button>
+            <button onclick="startRun('mix20')" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold text-xl pop-btn flex items-center justify-center gap-3 border-b-4 border-pink-800">
+                <i class="fa-solid fa-star text-2xl"></i><span>3단계: 20 이하의 덧셈과 뺄셈</span>
+            </button>
+        </div>
+        <button onclick="showScreen('hangarScreen')" class="mt-5 text-slate-400 text-sm underline">← 격납고로</button>
+    </div>
+</div>
+
+<!-- ============ BOSS INTRO ============ -->
+<div id="bossIntroScreen" class="hidden absolute inset-0 z-40 flex flex-col items-center justify-center pointer-events-none">
+    <div class="text-center bounce-in">
+        <div class="text-lg text-red-400 font-bold mb-2 animate-pulse">⚠ 보스 출현! ⚠</div>
+        <div id="bossIntroName" class="text-4xl md:text-5xl font-extrabold glow-text text-white">덧셈 젤리킹</div>
+    </div>
+</div>
+
+<!-- ============ HUD ============ -->
+<div id="hud" class="hidden absolute top-0 left-0 right-0 z-20 p-2 flex flex-col items-center pointer-events-none">
+    <div class="w-full max-w-2xl flex items-center justify-between px-3 py-2 bg-slate-900/80 backdrop-blur border border-slate-700 rounded-2xl pointer-events-auto">
+        <div id="livesContainer" class="flex gap-1 text-xl text-red-500"></div>
+        <div id="waveProgress" class="flex items-center gap-1 text-xs text-slate-300"></div>
+        <div class="text-center">
+            <div class="text-[10px] text-slate-400 leading-none">점수</div>
+            <div id="scoreText" class="text-xl font-bold text-yellow-400 glow-text leading-none">0</div>
+        </div>
+        <div id="p2ScoreWrap" class="hidden text-center">
+            <div class="text-[10px] text-pink-300 leading-none">P2</div>
+            <div id="scoreTextP2" class="text-xl font-bold text-pink-400 glow-text leading-none">0</div>
+        </div>
+        <div class="flex items-center gap-1">
+            <button onclick="toggleSound()" id="soundBtn" class="w-9 h-9 bg-slate-800 rounded-xl flex items-center justify-center text-slate-300"><i class="fa-solid fa-volume-high"></i></button>
+            <button onclick="pauseGame()" class="w-9 h-9 bg-slate-800 rounded-xl flex items-center justify-center text-slate-300"><i class="fa-solid fa-pause"></i></button>
+        </div>
+    </div>
+
+    <div id="comboContainer" class="mt-1 text-center opacity-0 transition-opacity pointer-events-none">
+        <span id="comboText" class="text-sm font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500">🔥 2연속!</span>
+    </div>
+
+    <div class="mt-2 pointer-events-auto">
+        <div class="glow-box bg-slate-900/95 px-6 py-2 rounded-2xl flex items-center justify-center gap-3 border-2 border-cyan-400 shadow-2xl">
+            <span class="text-slate-300 text-sm md:text-base font-bold">문제:</span>
+            <span id="questionText" class="text-2xl md:text-4xl font-extrabold text-yellow-300 tracking-wider glow-text">5 + 3 = ?</span>
+        </div>
+    </div>
+
+    <div id="bossHpWrap" class="hidden mt-2 w-full max-w-md px-4">
+        <div class="flex items-center justify-between text-xs text-red-300 mb-1"><span id="bossHpName">보스</span><span id="bossHpNum">10/10</span></div>
+        <div class="w-full h-4 bg-slate-800 rounded-full border-2 border-red-500 overflow-hidden">
+            <div id="bossHpBar" class="h-full bg-gradient-to-r from-red-500 to-rose-400" style="width:100%"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ CANVAS ============ -->
+<div id="gameContainer" class="relative w-full h-full flex-grow">
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<!-- ============ TOUCH CONTROLS (1P) ============ -->
+<div id="touchControls" class="hidden absolute bottom-4 left-0 right-0 z-30 justify-between items-center px-6 pointer-events-none md:hidden">
+    <div class="flex gap-3 pointer-events-auto">
+        <button id="btnLeft" class="w-16 h-16 bg-slate-800/80 active:bg-cyan-600 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-2xl text-cyan-300 shadow-lg active:scale-95"><i class="fa-solid fa-arrow-left"></i></button>
+        <button id="btnRight" class="w-16 h-16 bg-slate-800/80 active:bg-cyan-600 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-2xl text-cyan-300 shadow-lg active:scale-95"><i class="fa-solid fa-arrow-right"></i></button>
+    </div>
+    <div class="pointer-events-auto">
+        <button id="btnFire" class="w-20 h-20 bg-gradient-to-tr from-red-600 to-yellow-500 active:from-red-700 active:to-yellow-600 border-2 border-yellow-300 rounded-full flex items-center justify-center text-3xl text-white shadow-xl active:scale-90"><i class="fa-solid fa-crosshairs"></i></button>
+    </div>
+</div>
+<!-- 2P touch hint divider -->
+<div id="twoPTouchHint" class="hidden absolute inset-y-0 left-1/2 w-px bg-white/10 z-20 pointer-events-none md:hidden"></div>
+
+<!-- ============ TOAST ============ -->
+<div id="toast" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none transition-all duration-300 opacity-0 scale-50">
+    <div id="toastContent" class="px-8 py-4 rounded-3xl bg-emerald-500/90 text-white font-extrabold text-3xl md:text-4xl shadow-2xl border-4 border-white text-center glow-text">참 잘했어요! 🌟</div>
+</div>
+
+<!-- ============ PLANET CLEAR ============ -->
+<div id="stageClearScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-sm w-full pop-card bg-gradient-to-b from-emerald-950 to-slate-950 p-6 text-center bounce-in">
+        <div class="text-4xl mb-2">🪐✨</div>
+        <div id="planetClearTitle" class="text-2xl font-extrabold text-emerald-300 mb-1">행성을 구했어요!</div>
+        <p class="text-slate-300 mb-4 text-sm">별을 <b id="planetClearStars" class="text-yellow-300">0</b>개 모았어요</p>
+        <button onclick="proceedNextPlanet()" class="w-full py-3.5 bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-extrabold text-lg pop-btn border-b-4 border-teal-800">다음 행성으로 →</button>
+    </div>
+</div>
+
+<!-- ============ VICTORY ============ -->
+<div id="victoryScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-sm w-full pop-card bg-gradient-to-b from-amber-900 to-slate-950 p-6 text-center bounce-in">
+        <div class="text-5xl mb-2 float-y">🏆</div>
+        <div class="text-3xl font-extrabold text-yellow-300 glow-text mb-1">우주를 구했어요!</div>
+        <p class="text-slate-300 mb-4">모든 행성의 보스를 물리쳤어요!</p>
+        <div class="bg-slate-800 rounded-2xl p-4 mb-5 border border-slate-700 space-y-1 text-left">
+            <div class="flex justify-between"><span class="text-slate-400">최종 점수</span><span id="victoryScore" class="font-bold text-yellow-300">0</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">획득한 별</span><span id="victoryStars" class="font-bold text-emerald-300">0</span></div>
+        </div>
+        <button onclick="showMenu()" class="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-extrabold text-lg pop-btn border-b-4 border-amber-800">처음으로</button>
+    </div>
+</div>
+
+<!-- ============ GAME OVER ============ -->
+<div id="gameOverScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-md w-full pop-card bg-gradient-to-b from-rose-950 to-slate-950 p-6 text-center bounce-in">
+        <div id="gameOverTitle" class="text-4xl font-extrabold text-pink-400 mb-2">게임 종료! 🚀</div>
+        <p id="gameOverSub" class="text-slate-300 mb-5 text-lg">멋진 수학 모험이었어요!</p>
+        <div class="bg-slate-800 rounded-2xl p-4 mb-5 border border-slate-700 space-y-2">
+            <div class="flex justify-between text-lg"><span class="text-slate-400">최종 점수:</span><span id="finalScore" class="font-bold text-yellow-400 text-2xl">0 점</span></div>
+            <div class="flex justify-between text-lg"><span class="text-slate-400">맞힌 문제 수:</span><span id="finalSolved" class="font-bold text-emerald-400 text-xl">0 개</span></div>
+            <div class="flex justify-between text-lg"><span class="text-slate-400">최대 연속 정답:</span><span id="finalCombo" class="font-bold text-purple-400 text-xl">0 회</span></div>
+            <div class="flex justify-between text-lg"><span class="text-slate-400">모은 별:</span><span id="finalStars" class="font-bold text-yellow-300 text-xl">0 개</span></div>
+        </div>
+        <button onclick="showMenu()" class="w-full py-4 bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-extrabold text-xl pop-btn border-b-4 border-amber-800"><i class="fa-solid fa-house mr-2"></i> 처음으로 돌아가기</button>
+    </div>
+</div>
+
+<!-- ============ PAUSE ============ -->
+<div id="pauseScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="pop-card bg-slate-900 p-8 text-center max-w-xs w-full">
+        <div class="text-3xl text-cyan-300 mb-6 font-bold">⏸️ 일시 정지</div>
+        <div class="space-y-4">
+            <button onclick="resumeGame()" class="w-full py-3 bg-cyan-500 text-slate-950 font-bold text-lg pop-btn">계속하기</button>
+            <button onclick="showMenu()" class="w-full py-3 bg-slate-700 text-white font-bold text-lg pop-btn">메뉴로 가기</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* =====================================================================
+   우주 수학 방어대 — 고도화판
+   원본(1학년 제작) 로직: generateMathQuestion / spawnTargets 계열은
+   문제·정답 생성 규칙을 그대로 유지하고, 주변 시스템만 확장했습니다.
+   ===================================================================== */
+
+/* ---------------- Save Data ---------------- */
+const SAVE_KEY = 'smd_save_v1';
+function defaultSave() {
+    return {
+        stars: 0,
+        unlockedShips: ['rocket'],
+        upgrades: { speed: 0, fireRate: 0, bulletSize: 0, maxHearts: 0, magnet: 0 },
+        highScore: 0
+    };
+}
+function loadSave() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return defaultSave();
+        const parsed = JSON.parse(raw);
+        const d = defaultSave();
+        return {
+            stars: typeof parsed.stars === 'number' ? parsed.stars : d.stars,
+            unlockedShips: Array.isArray(parsed.unlockedShips) && parsed.unlockedShips.length ? parsed.unlockedShips : d.unlockedShips,
+            upgrades: Object.assign({}, d.upgrades, parsed.upgrades || {}),
+            highScore: typeof parsed.highScore === 'number' ? parsed.highScore : d.highScore
+        };
+    } catch (e) { return defaultSave(); }
+}
+function persistSave() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+}
+let save = loadSave();
+
+/* ---------------- Config: Ships ---------------- */
+const SHIPS = [
+    { id: 'rocket', name: '꼬마로켓', desc: '균형잡힌 기본 기체', cost: 0, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: null, colors: { body:'#38bdf8', wing:'#e11d48', glow:'rgba(56,189,248,.7)' } },
+    { id: 'jet',    name: '번개 제트기', desc: '빠른 이동 + 빠른 연사', cost: 30, baseSpeed: 11, baseFireRate: 180, baseBulletW: 6, special: null, colors: { body:'#facc15', wing:'#1d4ed8', glow:'rgba(250,204,21,.7)' } },
+    { id: 'saucer', name: '몽글 접시', desc: '넓은 총알, 느긋한 속도', cost: 60, baseSpeed: 6, baseFireRate: 280, baseBulletW: 15, special: null, colors: { body:'#a855f7', wing:'#7e22ce', glow:'rgba(168,85,247,.7)' } },
+    { id: 'cat',    name: '고양이 우주선', desc: '가끔 정답을 살짝 반짝여줘요', cost: 100, baseSpeed: 8, baseFireRate: 250, baseBulletW: 8, special: 'hint', colors: { body:'#fb923c', wing:'#f472b6', glow:'rgba(251,146,60,.7)' } },
+    { id: 'dragon', name: '드래곤 파이터', desc: '총알이 두 줄기로 나가요', cost: 150, baseSpeed: 8, baseFireRate: 220, baseBulletW: 8, special: 'double', colors: { body:'#34d399', wing:'#059669', glow:'rgba(52,211,153,.7)' } }
+];
+function getShip(id) { return SHIPS.find(s => s.id === id) || SHIPS[0]; }
+
+/* ---------------- Config: Upgrades ---------------- */
+const UPGRADES = [
+    { key: 'speed',     label: '스피드', icon: 'fa-person-running', max: 3, cost: [20, 40, 70], desc: '더 빨리 날아요' },
+    { key: 'fireRate',  label: '연사',   icon: 'fa-gun', max: 3, cost: [20, 40, 70], desc: '총알이 더 많이 나가요' },
+    { key: 'bulletSize',label: '탄 크기', icon: 'fa-expand', max: 3, cost: [20, 40, 70], desc: '총알이 커져요' },
+    { key: 'maxHearts', label: '하트',   icon: 'fa-heart', max: 2, cost: [50, 90], desc: '생명이 늘어요' },
+    { key: 'magnet',    label: '자석',   icon: 'fa-magnet', max: 3, cost: [25, 45, 75], desc: '별을 더 많이 모아요' }
+];
+
+/* ---------------- Config: Planets / Bosses ---------------- */
+const PLANETS = [
+    { name: '초록별', top: '#0f2e1a', bottom: '#04120a', accent: '#4ade80', bossName: '덧셈 젤리킹', bossColor: '#4ade80', bossShape: 'jelly' },
+    { name: '파란별', top: '#0f1f3a', bottom: '#040a16', accent: '#38bdf8', bossName: '뺄셈 문어대왕', bossColor: '#38bdf8', bossShape: 'octopus' },
+    { name: '보라별', top: '#241033', bottom: '#0a0412', accent: '#c084fc', bossName: '숫자 마법사 냥', bossColor: '#c084fc', bossShape: 'wizard' },
+    { name: '노란별', top: '#332b0f', bottom: '#120e04', accent: '#facc15', bossName: '거대 로봇 텐', bossColor: '#facc15', bossShape: 'robot' },
+    { name: '무지개별', top: '#2a0f2a', bottom: '#0e0414', accent: '#f472b6', bossName: '우주 대마왕 ZERO', bossColor: '#f472b6', bossShape: 'zero' }
+];
+const WAVES_PER_PLANET = 4;
+const CORRECT_PER_WAVE = 3;
+const BOSS_MAX_HP = 10;
+
+/* ---------------- Sound: SFX ---------------- */
+class SoundFX {
+    constructor() { this.ctx = null; this.muted = false; }
+    init() { if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); } }
+    tone(freq, start, dur, type, vol) {
+        if (this.muted || !this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime + start);
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + start + dur);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(this.ctx.currentTime + start); osc.stop(this.ctx.currentTime + start + dur);
+        } catch (e) {}
+    }
+    playLaser() {
+        if (this.muted || !this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+        } catch (e) {}
+    }
+    playHitCorrect() { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => this.tone(f, i * 0.08, 0.25, 'sine', 0.25)); }
+    playHitWrong() {
+        if (this.muted || !this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.3);
+        } catch (e) {}
+    }
+    playStar() { [880, 1318.5].forEach((f, i) => this.tone(f, i * 0.05, 0.15, 'square', 0.12)); }
+    playPlayerHit() { this.tone(140, 0, 0.25, 'sawtooth', 0.25); }
+    playPowerUp() { [523, 659, 880, 1174].forEach((f, i) => this.tone(f, i * 0.06, 0.2, 'triangle', 0.2)); }
+    playBossAppear() { [90, 90, 90].forEach((f, i) => this.tone(f, i * 0.3, 0.25, 'sawtooth', 0.3)); }
+    playBossHit() { this.tone(200, 0, 0.15, 'square', 0.2); }
+    playWaveClear() { [659, 880, 1046].forEach((f, i) => this.tone(f, i * 0.1, 0.2, 'sine', 0.2)); }
+    playVictory() { [523, 659, 783, 1046, 1318].forEach((f, i) => this.tone(f, i * 0.15, 0.35, 'sine', 0.25)); }
+    playGameOver() { [400, 350, 300, 250].forEach((f, i) => this.tone(f, i * 0.15, 0.2, 'sawtooth', 0.2)); }
+}
+const sound = new SoundFX();
+
+/* ---------------- Sound: Chiptune BGM ---------------- */
+class MusicPlayer {
+    constructor() {
+        this.ctx = null; this.playing = false; this.muted = false;
+        this.pattern = null; this.step = 0; this.nextTime = 0; this.timer = null;
+        this.stepDur = 0.18;
+    }
+    init() { if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); } }
+    patterns() {
+        return {
+            menu: { bpm: 100, bass: [130.81,0,164.81,0,196.00,0,164.81,0,130.81,0,164.81,0,196.00,0,220.00,0],
+                     lead: [0,523.25,0,659.25,0,0,587.33,0,0,493.88,0,587.33,0,0,523.25,0] },
+            stage:{ bpm: 140, bass: [146.83,146.83,0,146.83,196.00,196.00,0,196.00,164.81,164.81,0,164.81,196.00,196.00,0,220.00],
+                     lead: [880,0,987.77,0,1046.5,0,987.77,0,880,0,783.99,0,880,0,987.77,0] },
+            boss: { bpm: 160, bass: [110,110,0,110,116.54,116.54,0,116.54,98,98,0,98,110,110,0,130.81],
+                     lead: [440,0,0,466.16,0,440,0,0,392,0,0,415.3,0,392,0,0] }
+        };
+    }
+    play(name) {
+        this.init();
+        const pat = this.patterns()[name];
+        if (!pat) return;
+        this.stop();
+        this.pattern = pat; this.step = 0; this.playing = true;
+        this.stepDur = 60 / pat.bpm / 2;
+        this.nextTime = this.ctx.currentTime + 0.05;
+        this._scheduleLoop();
+    }
+    _scheduleLoop() {
+        if (!this.playing) return;
+        while (this.nextTime < this.ctx.currentTime + 0.2) {
+            this._playStep(this.step, this.nextTime);
+            this.nextTime += this.stepDur;
+            this.step = (this.step + 1) % this.pattern.bass.length;
+        }
+        this.timer = setTimeout(() => this._scheduleLoop(), 50);
+    }
+    _playStep(i, t) {
+        if (this.muted) return;
+        const bf = this.pattern.bass[i]; const lf = this.pattern.lead[i];
+        if (bf) this._note(bf, t, this.stepDur * 0.9, 'triangle', 0.12);
+        if (lf) this._note(lf, t, this.stepDur * 0.8, 'square', 0.07);
+    }
+    _note(freq, t, dur, type, vol) {
+        try {
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(vol, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(t); osc.stop(t + dur);
+        } catch (e) {}
+    }
+    stop() { this.playing = false; if (this.timer) clearTimeout(this.timer); this.timer = null; }
+    setMuted(m) { this.muted = m; }
+}
+const music = new MusicPlayer();
+
+/* ---------------- Canvas / Global State ---------------- */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let sessionMode = 'solo';       // 'solo' | 'coop' | 'vs'
+let numPlayers = 1;
+let hangarActivePlayer = 1;
+let pickedShip = { 1: 'rocket', 2: 'jet' };
+
+let isPlaying = false, isPaused = false;
+let animationFrameId = null;
+
+let run = null;          // current run state (see startRun)
+let currentQuestion = { num1: 0, num2: 0, operator: '+', answer: 0 };
+
+let players = [];        // active player entities
+let bullets = [];
+let targets = [];
+let bossBullets = [];
+let particles = [];
+let backgroundStars = [];
+let boss = null;
+
+const keys = {
+    1: { left: false, right: false, fire: false },
+    2: { left: false, right: false, fire: false }
+};
+let lastFireTime = { 1: 0, 2: 0 };
+
+/* ---------------- Screen management ---------------- */
+const SCREENS = ['startScreen','modeScreen','hangarScreen','difficultyScreen','pauseScreen','gameOverScreen','stageClearScreen','victoryScreen'];
+function showScreen(id) {
+    SCREENS.forEach(s => document.getElementById(s).classList.add('hidden'));
+    if (id) document.getElementById(id).classList.remove('hidden');
+}
+function refreshTitleStats() {
+    document.getElementById('titleStars').innerText = save.stars;
+    document.getElementById('titleHighScore').innerText = save.highScore;
+}
+
+/* ---------------- Canvas sizing ---------------- */
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+    players.forEach(p => { p.y = canvas.height - 90; if (p.x === 0) p.x = canvas.width * p.homeRatio - p.width / 2; });
+    initBackgroundStars();
+}
+window.addEventListener('resize', resizeCanvas);
+function initBackgroundStars() {
+    backgroundStars = [];
+    const count = Math.floor((canvas.width * canvas.height) / 3000);
+    for (let i = 0; i < count; i++) {
+        backgroundStars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 2 + 0.5, speed: Math.random() * 0.8 + 0.2, alpha: Math.random(), layer: Math.random() < 0.5 ? 0 : 1 });
+    }
+}
+
+/* =====================================================================
+   TITLE / MODE / HANGAR / DIFFICULTY navigation
+   ===================================================================== */
+function goModeSelect() { showScreen('modeScreen'); }
+function openHangarFromTitle() { hangarReturnTo = 'startScreen'; sessionMode = 'solo'; numPlayers = 1; enterHangar(); }
+let hangarReturnTo = 'modeScreen';
+
+function chooseMode(mode) {
+    sessionMode = mode;
+    numPlayers = (mode === 'solo') ? 1 : 2;
+    hangarReturnTo = 'modeScreen';
+    enterHangar();
+}
+function enterHangar() {
+    hangarActivePlayer = 1;
+    document.getElementById('hangarPlayerTabs').classList.toggle('hidden', numPlayers < 2);
+    document.getElementById('hangarNextBtn').innerText = (hangarReturnTo === 'startScreen') ? '닫기' : '다음 →';
+    renderHangar();
+    showScreen('hangarScreen');
+}
+function hangarBack() {
+    showScreen(hangarReturnTo);
+}
+function hangarConfirm() {
+    if (hangarReturnTo === 'startScreen') { showScreen('startScreen'); return; }
+    showScreen('difficultyScreen');
+}
+function setHangarPlayer(n) {
+    hangarActivePlayer = n;
+    document.getElementById('hangarTabP1').classList.toggle('border-b-4', n === 1);
+    document.getElementById('hangarTabP1').classList.toggle('opacity-50', n !== 1);
+    document.getElementById('hangarTabP2').classList.toggle('opacity-50', n !== 2);
+    renderHangar();
+}
+function renderHangar() {
+    document.getElementById('hangarStars').innerText = save.stars;
+    const list = document.getElementById('shipList');
+    list.innerHTML = '';
+    const selectedId = pickedShip[hangarActivePlayer];
+    SHIPS.forEach(ship => {
+        const unlocked = save.unlockedShips.includes(ship.id);
+        const isSelected = selectedId === ship.id;
+        const card = document.createElement('div');
+        card.className = 'ship-card bg-slate-800 border-2 border-slate-700 rounded-2xl p-3 text-center' + (isSelected ? ' selected' : '');
+        card.innerHTML = `
+            <div class="text-3xl mb-1">${shipEmoji(ship.id)}</div>
+            <div class="font-bold text-sm text-white">${ship.name}</div>
+            <div class="text-[10px] text-slate-400 mb-2 h-7">${ship.desc}</div>
+            ${unlocked
+                ? `<div class="text-[11px] ${isSelected ? 'text-yellow-300 font-bold' : 'text-emerald-400'}">${isSelected ? '선택됨 ✓' : '탭해서 선택'}</div>`
+                : `<div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-star text-yellow-400"></i>${ship.cost}로 해금</div>`}
+        `;
+        card.onclick = () => {
+            if (!unlocked) {
+                if (save.stars >= ship.cost) {
+                    save.stars -= ship.cost;
+                    save.unlockedShips.push(ship.id);
+                    persistSave();
+                    sound.init(); sound.playPowerUp();
+                    renderHangar();
+                }
+            } else {
+                pickedShip[hangarActivePlayer] = ship.id;
+                sound.init(); sound.playStar();
+                renderHangar();
+            }
+        };
+        list.appendChild(card);
+    });
+
+    const upList = document.getElementById('upgradeList');
+    upList.innerHTML = '';
+    UPGRADES.forEach(u => {
+        const lvl = save.upgrades[u.key];
+        const maxed = lvl >= u.max;
+        const cost = maxed ? null : u.cost[lvl];
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2';
+        row.innerHTML = `
+            <i class="fa-solid ${u.icon} text-cyan-300 w-5 text-center"></i>
+            <div class="flex-1">
+                <div class="text-sm font-bold text-white">${u.label} <span class="text-[10px] text-slate-400 font-normal">${u.desc}</span></div>
+                <div class="flex gap-1 mt-1">${Array.from({length:u.max}).map((_,i)=>`<span class="w-4 h-2 rounded-full ${i<lvl?'bg-emerald-400':'bg-slate-600'}"></span>`).join('')}</div>
+            </div>
+            <button class="pop-btn px-3 py-1.5 text-xs font-bold ${maxed ? 'bg-slate-700 text-slate-400' : 'bg-amber-500 text-slate-950 border-b-4 border-amber-800'}" ${maxed ? 'disabled' : ''}>${maxed ? '최고' : `⭐${cost}`}</button>
+        `;
+        if (!maxed) {
+            row.querySelector('button').onclick = () => {
+                if (save.stars >= cost) {
+                    save.stars -= cost;
+                    save.upgrades[u.key]++;
+                    persistSave();
+                    sound.init(); sound.playPowerUp();
+                    renderHangar();
+                }
+            };
+        }
+        upList.appendChild(row);
+    });
+}
+function shipEmoji(id) {
+    return { rocket: '🚀', jet: '✈️', saucer: '🛸', cat: '🐱', dragon: '🐲' }[id] || '🚀';
+}
+
+/* =====================================================================
+   RUN LIFECYCLE
+   ===================================================================== */
+function startRun(difficulty) {
+    sound.init();
+    run = {
+        difficulty,
+        planetIndex: 0,
+        waveIndex: 0,
+        correctInWave: 0,
+        maxHearts: 3 + save.upgrades.maxHearts,
+        hearts: 3 + save.upgrades.maxHearts,
+        scoreP1: 0, scoreP2: 0,
+        combo: 0, maxCombo: 0, solvedCount: 0,
+        starsEarned: 0,
+        inBoss: false
+    };
+    bullets = []; targets = []; bossBullets = []; particles = []; boss = null;
+
+    players = [];
+    if (numPlayers === 1) {
+        players.push(makePlayer(1, pickedShip[1], 0.5));
+    } else {
+        players.push(makePlayer(1, pickedShip[1], 0.32));
+        players.push(makePlayer(2, pickedShip[2], 0.68));
+    }
+
+    document.getElementById('p2ScoreWrap').classList.toggle('hidden', sessionMode !== 'vs');
+    document.getElementById('touchControls').classList.toggle('hidden', numPlayers !== 1);
+    document.getElementById('twoPTouchHint').classList.toggle('hidden', numPlayers !== 2);
+
+    showScreen(null);
+    document.getElementById('hud').classList.remove('hidden');
+    resizeCanvas();
+    updateHUD();
+    generateWaveQuestion();
+
+    isPlaying = true; isPaused = false;
+    cancelAnimationFrame(animationFrameId);
+    music.play('stage');
+    gameLoop();
+}
+function makePlayer(id, shipId, homeRatio) {
+    const ship = getShip(shipId);
+    const speedLvl = save.upgrades.speed, fireLvl = save.upgrades.fireRate, bulletLvl = save.upgrades.bulletSize;
+    return {
+        id, shipId, ship,
+        x: 0, y: 0, width: 58, height: 58,
+        speed: ship.baseSpeed * (1 + 0.15 * speedLvl),
+        fireCooldown: Math.max(90, ship.baseFireRate * (1 - 0.12 * fireLvl)),
+        bulletW: ship.baseBulletW * (1 + 0.2 * bulletLvl),
+        homeRatio, alive: true, hitFlash: 0, hintPulse: 0
+    };
+}
+
+/* ---------------- Math question generation (원본 로직 유지) ---------------- */
+function generateMathQuestion(mode) {
+    let n1 = 0, n2 = 0, op = '+', ans = 0;
+    if (mode === 'add10') {
+        ans = Math.floor(Math.random() * 9) + 2;
+        n1 = Math.floor(Math.random() * (ans - 1)) + 1;
+        n2 = ans - n1; op = '+';
+    } else if (mode === 'sub10') {
+        n1 = Math.floor(Math.random() * 9) + 2;
+        n2 = Math.floor(Math.random() * (n1 - 1)) + 1;
+        op = '-'; ans = n1 - n2;
+    } else {
+        const isAdd = Math.random() > 0.5;
+        if (isAdd) {
+            ans = Math.floor(Math.random() * 12) + 5;
+            n1 = Math.floor(Math.random() * (ans - 2)) + 1;
+            n2 = ans - n1; op = '+';
+        } else {
+            n1 = Math.floor(Math.random() * 12) + 6;
+            n2 = Math.floor(Math.random() * (n1 - 2)) + 1;
+            op = '-'; ans = n1 - n2;
+        }
+    }
+    return { num1: n1, num2: n2, operator: op, answer: ans };
+}
+function showQuestionText() {
+    document.getElementById('questionText').innerText = `${currentQuestion.num1} ${currentQuestion.operator} ${currentQuestion.num2} = ?`;
+}
+
+const MONSTER_COLORS = [
+    { bg: '#ef4444', border: '#fca5a5', shadow: 'rgba(239,68,68,.6)' },
+    { bg: '#3b82f6', border: '#93c5fd', shadow: 'rgba(59,130,246,.6)' },
+    { bg: '#10b981', border: '#6ee7b7', shadow: 'rgba(16,185,129,.6)' },
+    { bg: '#a855f7', border: '#d8b4fe', shadow: 'rgba(168,85,247,.6)' }
+];
+
+function generateWaveQuestion() {
+    currentQuestion = generateMathQuestion(run.difficulty);
+    showQuestionText();
+    spawnTargets(currentQuestion.answer);
+}
+function spawnTargets(correctAnswer) {
+    targets = [];
+    const targetCount = 3, tw = 70, th = 70;
+    const sectionWidth = canvas.width / targetCount;
+    let wrongOptions = new Set();
+    let guard = 0;
+    while (wrongOptions.size < targetCount - 1 && guard < 100) {
+        guard++;
+        let offset = (Math.floor(Math.random() * 5) + 1) * (Math.random() > 0.5 ? 1 : -1);
+        let wrongVal = correctAnswer + offset;
+        if (wrongVal >= 0 && wrongVal !== correctAnswer && wrongVal <= 20) wrongOptions.add(wrongVal);
+    }
+    let options = [correctAnswer, ...Array.from(wrongOptions)];
+    while (options.length < targetCount) options.push(correctAnswer + options.length + 1);
+    options.sort(() => Math.random() - 0.5);
+
+    const speedMul = 1 + run.planetIndex * 0.06;
+    for (let i = 0; i < targetCount; i++) {
+        let posX = sectionWidth * i + (sectionWidth / 2 - tw / 2);
+        posX += (Math.random() * 20 - 10);
+        posX = Math.max(10, Math.min(canvas.width - tw - 10, posX));
+        const colorObj = MONSTER_COLORS[i % MONSTER_COLORS.length];
+        targets.push({
+            x: posX, y: -100 - Math.random() * 40, width: tw, height: th,
+            value: options[i], isCorrect: options[i] === correctAnswer,
+            speed: (Math.random() * 0.4 + 0.8) * speedMul,
+            color: colorObj, wobbleOffset: Math.random() * Math.PI * 2, hintGlow: 0
+        });
+    }
+}
+
+/* ---------------- Boss ---------------- */
+function createBoss(planetIdx) {
+    const p = PLANETS[planetIdx];
+    return {
+        name: p.bossName, color: p.bossColor, shape: p.bossShape,
+        hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP,
+        x: 0, y: 130, width: 180, height: 150,
+        bob: 0, fireTimer: 0, warnTimer: -1, warnX: 0,
+        finalPhase: p.bossShape === 'zero'
+    };
+}
+function startBossIntro() {
+    run.inBoss = true;
+    boss = createBoss(run.planetIndex);
+    boss.x = canvas.width / 2 - boss.width / 2;
+    updateHUD();
+    document.getElementById('bossIntroName').innerText = boss.name;
+    document.getElementById('bossIntroScreen').classList.remove('hidden');
+    document.getElementById('bossHpWrap').classList.remove('hidden');
+    document.getElementById('bossHpName').innerText = boss.name;
+    updateBossHpBar();
+    sound.playBossAppear();
+    music.play('boss');
+    isPaused = true;
+    document.body.classList.add('shake-screen');
+    setTimeout(() => document.body.classList.remove('shake-screen'), 400);
+    setTimeout(() => {
+        document.getElementById('bossIntroScreen').classList.add('hidden');
+        isPaused = false;
+        generateBossQuestion();
+    }, 1600);
+}
+function generateBossQuestion() {
+    currentQuestion = generateMathQuestion(run.difficulty);
+    showQuestionText();
+    spawnTargets(currentQuestion.answer);
+    targets.forEach(t => { t.speed *= 0.6; t.y = -80 - Math.random() * 30; });
+}
+function updateBossHpBar() {
+    document.getElementById('bossHpNum').innerText = `${boss.hp}/${boss.maxHp}`;
+    document.getElementById('bossHpBar').style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+}
+
+/* ---------------- Explosions ---------------- */
+function createExplosion(x, y, color, count) {
+    for (let i = 0; i < (count || 25); i++) {
+        const angle = Math.random() * Math.PI * 2, spd = Math.random() * 6 + 2;
+        particles.push({ x, y, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd, radius: Math.random() * 5 + 2, color, alpha: 1, decay: Math.random() * 0.03 + 0.015 });
+    }
+}
+function spawnStarPopup(x, y) {
+    particles.push({ x, y, vx: (Math.random()-0.5)*1.5, vy: -2.5, radius: 4, color: '#facc15', alpha: 1, decay: 0.02, isStar: true });
+}
+
+/* =====================================================================
+   INPUT
+   ===================================================================== */
+function setupEventListeners() {
+    window.addEventListener('keydown', (e) => {
+        sound.init();
+        const k = e.key;
+        if (k === 'ArrowLeft') { keys[1].left = true; e.preventDefault(); }
+        if (k === 'ArrowRight') { keys[1].right = true; e.preventDefault(); }
+        if (k === ' ' || k === 'Spacebar') { keys[1].fire = true; e.preventDefault(); }
+        if (k === 'a' || k === 'A') keys[2].left = true;
+        if (k === 'd' || k === 'D') keys[2].right = true;
+        if (k === 'f' || k === 'F') keys[2].fire = true;
+        if (k === 'Escape') { if (isPlaying) { isPaused ? resumeGame() : pauseGame(); } }
+    });
+    window.addEventListener('keyup', (e) => {
+        const k = e.key;
+        if (k === 'ArrowLeft') keys[1].left = false;
+        if (k === 'ArrowRight') keys[1].right = false;
+        if (k === ' ' || k === 'Spacebar') keys[1].fire = false;
+        if (k === 'a' || k === 'A') keys[2].left = false;
+        if (k === 'd' || k === 'D') keys[2].right = false;
+        if (k === 'f' || k === 'F') keys[2].fire = false;
+    });
+
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const btnFire = document.getElementById('btnFire');
+    btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); sound.init(); keys[1].left = true; });
+    btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys[1].left = false; });
+    btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); sound.init(); keys[1].right = true; });
+    btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys[1].right = false; });
+    btnFire.addEventListener('touchstart', (e) => { e.preventDefault(); sound.init(); shootBullet(players[0]); });
+
+    let dragId1 = null, dragId2 = null;
+    canvas.addEventListener('mousedown', (e) => { sound.init(); movePlayerToX(players[0], e.clientX); dragId1 = 'mouse'; });
+    canvas.addEventListener('mousemove', (e) => { if (dragId1 === 'mouse') movePlayerToX(players[0], e.clientX); });
+    window.addEventListener('mouseup', () => dragId1 = null);
+
+    canvas.addEventListener('touchstart', (e) => {
+        sound.init();
+        for (const t of e.touches) handleTouchPoint(t.clientX, t.identifier, true);
+    }, { passive: true });
+    canvas.addEventListener('touchmove', (e) => {
+        for (const t of e.touches) handleTouchPoint(t.clientX, t.identifier, false);
+    }, { passive: true });
+}
+function handleTouchPoint(clientX, id, isStart) {
+    if (!isPlaying || isPaused) return;
+    const rect = canvas.getBoundingClientRect();
+    const relX = clientX - rect.left;
+    if (numPlayers === 1) {
+        movePlayerToX(players[0], clientX);
+        if (isStart) shootBullet(players[0]);
+    } else {
+        const half = canvas.width / 2;
+        const p = relX < half ? players[0] : players[1];
+        if (p) { movePlayerToX(p, clientX); if (isStart) shootBullet(p); }
+    }
+}
+function movePlayerToX(p, clientX) {
+    if (!p) return;
+    const rect = canvas.getBoundingClientRect();
+    const targetX = clientX - rect.left - p.width / 2;
+    p.x = Math.max(0, Math.min(canvas.width - p.width, targetX));
+}
+
+/* =====================================================================
+   BULLETS
+   ===================================================================== */
+function shootBullet(p) {
+    if (!p || !isPlaying || isPaused) return;
+    const now = Date.now();
+    if (now - lastFireTime[p.id] < p.fireCooldown) return;
+    lastFireTime[p.id] = now;
+    const baseY = p.y;
+    if (p.ship.special === 'double') {
+        bullets.push({ x: p.x + p.width/2 - p.bulletW/2 - 8, y: baseY, width: p.bulletW, height: 20, speed: 12, owner: p.id });
+        bullets.push({ x: p.x + p.width/2 - p.bulletW/2 + 8, y: baseY, width: p.bulletW, height: 20, speed: 12, owner: p.id });
+    } else {
+        bullets.push({ x: p.x + p.width/2 - p.bulletW/2, y: baseY, width: p.bulletW, height: 20, speed: 12, owner: p.id });
+    }
+    sound.playLaser();
+}
+
+/* =====================================================================
+   UPDATE
+   ===================================================================== */
+function update() {
+    if (!isPlaying || isPaused) return;
+
+    players.forEach(p => {
+        const k = keys[p.id];
+        if (k.left) p.x -= p.speed;
+        if (k.right) p.x += p.speed;
+        if (k.fire) shootBullet(p);
+        p.x = Math.max(0, Math.min(canvas.width - p.width, p.x));
+        if (p.hitFlash > 0) p.hitFlash--;
+        if (p.ship.special === 'hint') {
+            p.hintPulse += 1;
+            if (p.hintPulse > 240) p.hintPulse = 0;
+        }
+    });
+
+    backgroundStars.forEach(star => {
+        star.y += star.speed * (star.layer ? 1.6 : 0.8);
+        if (star.y > canvas.height) { star.y = 0; star.x = Math.random() * canvas.width; }
+    });
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].y -= bullets[i].speed;
+        if (bullets[i].y < -20) bullets.splice(i, 1);
+    }
+    for (let i = bossBullets.length - 1; i >= 0; i--) {
+        const b = bossBullets[i];
+        b.y += b.speed;
+        if (b.y > canvas.height + 30) { bossBullets.splice(i, 1); continue; }
+        players.forEach(p => {
+            if (p.hitFlash > 0) return;
+            if (b.x < p.x + p.width && b.x + b.width > p.x && b.y < p.y + p.height && b.y + b.height > p.y) {
+                bossBullets.splice(i, 1);
+                onPlayerHit(p);
+            }
+        });
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.alpha -= p.decay;
+        if (p.isStar) p.vy += 0.03;
+        if (p.alpha <= 0) particles.splice(i, 1);
+    }
+
+    if (run.inBoss) updateBoss(); else updateWaveTargets();
+}
+
+function onPlayerHit(p) {
+    sound.playPlayerHit();
+    createExplosion(p.x + p.width/2, p.y + p.height/2, '#ef4444', 18);
+    p.hitFlash = 90;
+    run.hearts--; run.combo = 0;
+    updateHUD();
+    document.body.classList.add('shake-screen');
+    setTimeout(() => document.body.classList.remove('shake-screen'), 400);
+    if (run.hearts <= 0) endRun(false);
+}
+
+function grantCorrectHit(x, y, byPlayerId) {
+    sound.playHitCorrect();
+    createExplosion(x, y, '#38bdf8'); createExplosion(x, y, '#facc15');
+    spawnStarPopup(x, y);
+    const magnetBonus = save.upgrades.magnet;
+    const gained = 1 + Math.floor(magnetBonus / 2);
+    run.starsEarned += gained;
+
+    const pts = 100 + run.combo * 20;
+    if (sessionMode === 'vs' && byPlayerId === 2) run.scoreP2 += pts; else run.scoreP1 += pts;
+    run.combo++; run.solvedCount++;
+    if (run.combo > run.maxCombo) run.maxCombo = run.combo;
+    if (run.combo > 0 && run.combo % 5 === 0) { run.starsEarned += 2; sound.playStar(); }
+
+    showToast(pickPraise(), true);
+    updateHUD();
+}
+
+function updateWaveTargets() {
+    let resetNeeded = false;
+    for (let i = targets.length - 1; i >= 0; i--) {
+        const target = targets[i];
+        target.y += target.speed;
+        target.wobbleOffset += 0.05;
+        target.x += Math.sin(target.wobbleOffset) * 0.8;
+        if (target.hintGlow > 0) target.hintGlow -= 0.03;
+
+        // cat special: gently glow the correct target periodically
+        players.forEach(p => {
+            if (p.ship.special === 'hint' && target.isCorrect && p.hintPulse > 180) target.hintGlow = 1;
+        });
+
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            const bullet = bullets[j];
+            if (bullet.x < target.x + target.width && bullet.x + bullet.width > target.x &&
+                bullet.y < target.y + target.height && bullet.y + bullet.height > target.y) {
+                bullets.splice(j, 1);
+                if (target.isCorrect) {
+                    grantCorrectHit(target.x + target.width/2, target.y + target.height/2, bullet.owner);
+                    resetNeeded = true;
+                    if (sessionMode === 'vs') { targets.splice(i, 1); resetNeeded = true; }
+                } else {
+                    sound.playHitWrong();
+                    createExplosion(target.x + target.width/2, target.y + target.height/2, '#ef4444');
+                    if (sessionMode !== 'vs') run.combo = 0;
+                    updateHUD();
+                    showToast('다시 생각해보세요! 💡', false);
+                    targets.splice(i, 1);
+                }
+                break;
+            }
+        }
+        if (targets[i] && targets[i].y > canvas.height - 40) {
+            if (targets[i].isCorrect) {
+                run.hearts--; run.combo = 0; updateHUD();
+                showToast('아쉬워요! 다음 문제! 🚀', false);
+                resetNeeded = true;
+                if (run.hearts <= 0) { endRun(false); return; }
+            } else {
+                targets.splice(i, 1);
+            }
+        }
+    }
+    if (resetNeeded) {
+        run.correctInWave++;
+        if (run.correctInWave >= CORRECT_PER_WAVE) {
+            run.waveIndex++;
+            run.correctInWave = 0;
+            if (run.waveIndex >= WAVES_PER_PLANET) { sound.playWaveClear(); startBossIntro(); return; }
+        }
+        generateWaveQuestion();
+        updateHUD();
+    }
+}
+
+function updateBoss() {
+    boss.bob += 0.05;
+    boss.y = 130 + Math.sin(boss.bob) * 10;
+    boss.fireTimer++;
+    const fireInterval = boss.finalPhase ? 95 : 140;
+    if (boss.fireTimer > fireInterval && boss.warnTimer < 0) {
+        boss.fireTimer = 0;
+        const targetPlayer = players[Math.floor(Math.random() * players.length)];
+        boss.warnX = targetPlayer ? targetPlayer.x + targetPlayer.width/2 : canvas.width/2;
+        boss.warnTimer = 45;
+    }
+    if (boss.warnTimer >= 0) {
+        boss.warnTimer--;
+        if (boss.warnTimer === 0) {
+            bossBullets.push({ x: boss.warnX - 12, y: boss.y + boss.height/2, width: 24, height: 24, speed: boss.finalPhase ? 4.5 : 3.2 });
+        }
+    }
+
+    let resetNeeded = false;
+    for (let i = targets.length - 1; i >= 0; i--) {
+        const target = targets[i];
+        target.y += target.speed;
+        target.wobbleOffset += 0.05;
+        target.x += Math.sin(target.wobbleOffset) * 0.6;
+
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            const bullet = bullets[j];
+            if (bullet.x < target.x + target.width && bullet.x + bullet.width > target.x &&
+                bullet.y < target.y + target.height && bullet.y + bullet.height > target.y) {
+                bullets.splice(j, 1);
+                if (target.isCorrect) {
+                    sound.playBossHit();
+                    createExplosion(target.x + target.width/2, target.y + target.height/2, boss.color);
+                    spawnStarPopup(target.x + target.width/2, target.y + target.height/2);
+                    boss.hp--;
+                    updateBossHpBar();
+                    const pts = 150 + run.combo * 20;
+                    if (sessionMode === 'vs' && bullet.owner === 2) run.scoreP2 += pts; else run.scoreP1 += pts;
+                    run.combo++; run.solvedCount++;
+                    run.starsEarned += 2;
+                    if (run.combo > run.maxCombo) run.maxCombo = run.combo;
+                    showToast(pickPraise(), true);
+                    updateHUD();
+                    targets.splice(i, 1);
+                    if (boss.hp <= 0) { onBossDefeated(); return; }
+                    resetNeeded = true;
+                } else {
+                    sound.playHitWrong();
+                    createExplosion(target.x + target.width/2, target.y + target.height/2, '#ef4444');
+                    targets.splice(i, 1);
+                }
+                break;
+            }
+        }
+        if (targets[i] && targets[i].y > canvas.height - 40) targets.splice(i, 1);
+    }
+    if (resetNeeded || targets.length === 0) generateBossQuestion();
+}
+
+function onBossDefeated() {
+    sound.playVictory();
+    createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, boss.color, 60);
+    createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, '#facc15', 40);
+    run.starsEarned += 10;
+    music.stop();
+    isPaused = true;
+    targets = []; bossBullets = [];
+    document.getElementById('bossHpWrap').classList.add('hidden');
+    setTimeout(() => {
+        run.planetIndex++;
+        if (run.planetIndex >= PLANETS.length) { finishVictory(); }
+        else { showPlanetClear(); }
+    }, 900);
+}
+function showPlanetClear() {
+    document.getElementById('planetClearTitle').innerText = `${PLANETS[run.planetIndex-1].name}을 구했어요!`;
+    document.getElementById('planetClearStars').innerText = run.starsEarned;
+    showScreen('stageClearScreen');
+}
+function proceedNextPlanet() {
+    run.waveIndex = 0; run.correctInWave = 0; run.inBoss = false; boss = null;
+    showScreen(null);
+    generateWaveQuestion();
+    updateHUD();
+    isPaused = false;
+    music.play('stage');
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    renderPlanetBackdrop();
+
+    ctx.fillStyle = '#ffffff';
+    backgroundStars.forEach(star => { ctx.globalAlpha = star.alpha; ctx.fillRect(star.x, star.y, star.size, star.size); });
+    ctx.globalAlpha = 1.0;
+
+    particles.forEach(p => {
+        ctx.save(); ctx.globalAlpha = Math.max(0, p.alpha); ctx.fillStyle = p.color;
+        if (p.isStar) {
+            drawStarShape(p.x, p.y, p.radius + 3);
+        } else {
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    });
+
+    // boss warning telegraph
+    if (run && run.inBoss && boss && boss.warnTimer >= 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 + Math.sin(boss.warnTimer * 0.6) * 0.3;
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(boss.warnX, boss.y + boss.height/2, 16, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+    }
+    bossBullets.forEach(b => {
+        ctx.save(); ctx.fillStyle = '#ef4444'; ctx.shadowColor = '#f87171'; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(b.x + b.width/2, b.y + b.height/2, b.width/2, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    });
+
+    bullets.forEach(b => {
+        ctx.save();
+        ctx.fillStyle = b.owner === 2 ? '#f472b6' : '#facc15';
+        ctx.shadowColor = b.owner === 2 ? '#ec4899' : '#f59e0b'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.roundRect(b.x, b.y, b.width, b.height, 4); ctx.fill();
+        ctx.restore();
+    });
+
+    players.forEach(p => drawShip(p));
+
+    if (run && run.inBoss && boss) drawBoss(boss);
+    targets.forEach(t => drawMonster(t));
+}
+
+function renderPlanetBackdrop() {
+    if (!run) return;
+    const p = PLANETS[Math.min(run.planetIndex, PLANETS.length - 1)];
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, p.top); grad.addColorStop(1, p.bottom);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawStarShape(cx, cy, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+        const a1 = (Math.PI * 2 / 5) * i - Math.PI/2;
+        const a2 = a1 + Math.PI/5;
+        ctx.lineTo(cx + Math.cos(a1) * r, cy + Math.sin(a1) * r);
+        ctx.lineTo(cx + Math.cos(a2) * r * 0.45, cy + Math.sin(a2) * r * 0.45);
+    }
+    ctx.closePath(); ctx.fill();
+}
+
+function drawShip(p) {
+    ctx.save();
+    if (p.hitFlash > 0 && Math.floor(p.hitFlash / 6) % 2 === 0) { ctx.restore(); return; }
+    ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
+    const c = p.ship.colors;
+    const flameH = Math.random() * 14 + 10;
+
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath();
+    ctx.moveTo(-10, p.height/2); ctx.lineTo(0, p.height/2 + flameH); ctx.lineTo(10, p.height/2);
+    ctx.closePath(); ctx.fill();
+
+    ctx.shadowColor = c.glow; ctx.shadowBlur = 12;
+
+    switch (p.shipId || p.ship.id) {
+        case 'jet':
+            ctx.fillStyle = c.body;
+            ctx.beginPath();
+            ctx.moveTo(0, -p.height/2); ctx.lineTo(p.width/3, p.height/2 - 6); ctx.lineTo(-p.width/3, p.height/2 - 6);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = c.wing;
+            ctx.beginPath(); ctx.moveTo(-p.width/3, p.height/2-6); ctx.lineTo(-p.width/2-6, p.height/2+8); ctx.lineTo(-6, p.height/2-10); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(p.width/3, p.height/2-6); ctx.lineTo(p.width/2+6, p.height/2+8); ctx.lineTo(6, p.height/2-10); ctx.fill();
+            break;
+        case 'saucer':
+            ctx.fillStyle = c.body;
+            ctx.beginPath(); ctx.ellipse(0, 2, p.width/2, p.height/3.2, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = c.wing;
+            ctx.beginPath(); ctx.ellipse(0, -4, p.width/3.4, p.height/4.5, 0, 0, Math.PI*2); ctx.fill();
+            break;
+        case 'cat':
+            ctx.fillStyle = c.body;
+            ctx.beginPath(); ctx.arc(0, 2, p.width/2.4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-p.width/2.6, -p.height/6); ctx.lineTo(-p.width/2, -p.height/1.7); ctx.lineTo(-p.width/6, -p.height/4); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(p.width/2.6, -p.height/6); ctx.lineTo(p.width/2, -p.height/1.7); ctx.lineTo(p.width/6, -p.height/4); ctx.fill();
+            break;
+        case 'dragon':
+            ctx.fillStyle = c.body;
+            ctx.beginPath();
+            ctx.moveTo(0, -p.height/2); ctx.lineTo(p.width/2.2, p.height/2 - 8); ctx.lineTo(-p.width/2.2, p.height/2 - 8);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = c.wing;
+            ctx.beginPath(); ctx.moveTo(-p.width/2.2, 0); ctx.lineTo(-p.width/1.1, p.height/4); ctx.lineTo(-p.width/4, p.height/3); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(p.width/2.2, 0); ctx.lineTo(p.width/1.1, p.height/4); ctx.lineTo(p.width/4, p.height/3); ctx.fill();
+            break;
+        default:
+            ctx.fillStyle = c.body;
+            ctx.beginPath();
+            ctx.moveTo(0, -p.height/2); ctx.lineTo(p.width/2, p.height/2-10); ctx.lineTo(-p.width/2, p.height/2-10);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = c.wing;
+            ctx.beginPath(); ctx.moveTo(-p.width/2, p.height/2-10); ctx.lineTo(-p.width/2-10, p.height/2+5); ctx.lineTo(-p.width/2+10, p.height/2-10); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(p.width/2, p.height/2-10); ctx.lineTo(p.width/2+10, p.height/2+5); ctx.lineTo(p.width/2-10, p.height/2-10); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(0, -4, 11, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(0, -4, 5, 0, Math.PI*2); ctx.fill();
+
+    if (numPlayers === 2) {
+        ctx.fillStyle = p.id === 2 ? '#f472b6' : '#38bdf8';
+        ctx.font = 'bold 13px Jua'; ctx.textAlign = 'center';
+        ctx.fillText('P' + p.id, 0, -p.height/2 - 8);
+    }
+    ctx.restore();
+}
+
+function drawMonster(t) {
+    ctx.save();
+    ctx.translate(t.x + t.width/2, t.y + t.height/2);
+    if (t.hintGlow > 0) {
+        ctx.save(); ctx.globalAlpha = t.hintGlow * 0.6;
+        ctx.strokeStyle = '#fde047'; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(0, 0, t.width/2 + 6, 0, Math.PI*2); ctx.stroke();
+        ctx.restore();
+    }
+    ctx.shadowColor = t.color.shadow; ctx.shadowBlur = 15;
+    ctx.fillStyle = t.color.bg; ctx.strokeStyle = t.color.border; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, 0, t.width/2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(-12,-10,8,0,Math.PI*2); ctx.arc(12,-10,8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(-10,-10,4,0,Math.PI*2); ctx.arc(14,-10,4,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px Jua'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(t.value, 0, 12);
+    ctx.restore();
+}
+
+function drawBoss(b) {
+    ctx.save();
+    ctx.translate(b.x + b.width/2, b.y + b.height/2);
+    ctx.shadowColor = b.color; ctx.shadowBlur = 25;
+    ctx.fillStyle = b.color;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5;
+
+    switch (b.shape) {
+        case 'jelly':
+            ctx.beginPath();
+            ctx.moveTo(-b.width/2, 0);
+            ctx.quadraticCurveTo(-b.width/2, -b.height/2, 0, -b.height/2);
+            ctx.quadraticCurveTo(b.width/2, -b.height/2, b.width/2, 0);
+            for (let i=0;i<5;i++){ const x0=b.width/2-i*(b.width/5); ctx.quadraticCurveTo(x0-b.width/10, b.height/2, x0-b.width/5, 0); }
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+            break;
+        case 'octopus':
+            ctx.beginPath(); ctx.arc(0, -10, b.width/2.6, Math.PI, 0); ctx.fill(); ctx.stroke();
+            for (let i=0;i<6;i++) {
+                const lx = -b.width/2.4 + i * (b.width/2.4*2/5);
+                ctx.beginPath();
+                ctx.moveTo(lx, 10);
+                ctx.quadraticCurveTo(lx + Math.sin(b.bob+i)*10, b.height/2, lx + Math.sin(b.bob+i)*16, b.height/2 - 10);
+                ctx.lineWidth = 10; ctx.strokeStyle = b.color; ctx.stroke();
+            }
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5;
+            break;
+        case 'wizard':
+            ctx.beginPath(); ctx.arc(0, 6, b.width/2.6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, -b.height/1.6); ctx.lineTo(-b.width/3.2, -6); ctx.lineTo(b.width/3.2, -6); ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            break;
+        case 'robot':
+            ctx.beginPath(); ctx.roundRect(-b.width/2.4, -b.height/2.6, b.width/1.2, b.height/1.4, 18); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath(); ctx.roundRect(-b.width/4, -b.height/5, b.width/2, b.height/6, 8); ctx.fill();
+            break;
+        case 'zero':
+        default:
+            ctx.beginPath(); ctx.arc(0, 0, b.width/2.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            for (let i=0;i<8;i++) {
+                const a = (Math.PI*2/8)*i + b.bob;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(a)*b.width/2.5, Math.sin(a)*b.width/2.5);
+                ctx.lineTo(Math.cos(a)*b.width/1.7, Math.sin(a)*b.width/1.7);
+                ctx.lineWidth = 8; ctx.strokeStyle = b.color; ctx.stroke();
+            }
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5;
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(-22,-4,10,0,Math.PI*2); ctx.arc(22,-4,10,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(-19,-4,5,0,Math.PI*2); ctx.arc(25,-4,5,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+}
+
+/* =====================================================================
+   HUD / TOAST
+   ===================================================================== */
+const PRAISE = ['참 잘했어요! 🌟', '정답이에요! 👏', '최고예요! ✨', '딱 맞았어요! 🎉'];
+function pickPraise() { return PRAISE[Math.floor(Math.random() * PRAISE.length)]; }
+
+function updateHUD() {
+    document.getElementById('scoreText').innerText = run.scoreP1;
+    document.getElementById('scoreTextP2').innerText = run.scoreP2;
+
+    const livesContainer = document.getElementById('livesContainer');
+    livesContainer.innerHTML = '';
+    for (let i = 0; i < run.maxHearts; i++) {
+        livesContainer.innerHTML += i < run.hearts
+            ? '<i class="fa-solid fa-heart animate-pulse"></i>'
+            : '<i class="fa-regular fa-heart opacity-30"></i>';
+    }
+
+    const wp = document.getElementById('waveProgress');
+    wp.innerHTML = '';
+    if (run.inBoss) {
+        wp.innerHTML = `<span class="text-red-300 font-bold">👹 보스전</span>`;
+    } else {
+        for (let i = 0; i < WAVES_PER_PLANET; i++) {
+            wp.innerHTML += `<span class="w-2.5 h-2.5 rounded-full inline-block ${i < run.waveIndex ? 'bg-emerald-400' : 'bg-slate-600'}"></span>`;
+        }
+    }
+
+    const comboContainer = document.getElementById('comboContainer');
+    if (run.combo >= 2) {
+        document.getElementById('comboText').innerText = `🔥 ${run.combo}연속 정답!`;
+        comboContainer.classList.remove('opacity-0');
+    } else {
+        comboContainer.classList.add('opacity-0');
+    }
+}
+function showToast(msg, isSuccess) {
+    const toast = document.getElementById('toast');
+    const content = document.getElementById('toastContent');
+    content.innerText = msg;
+    content.className = "px-8 py-4 rounded-3xl text-white font-extrabold text-2xl md:text-4xl shadow-2xl border-4 border-white text-center glow-text " + (isSuccess ? "bg-emerald-500/90" : "bg-rose-500/90");
+    toast.classList.remove('opacity-0', 'scale-50');
+    toast.classList.add('opacity-100', 'scale-100');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => { toast.classList.remove('opacity-100', 'scale-100'); toast.classList.add('opacity-0', 'scale-50'); }, 1000);
+}
+function toggleSound() {
+    sound.muted = !sound.muted;
+    music.setMuted(sound.muted);
+    const soundBtn = document.getElementById('soundBtn');
+    soundBtn.innerHTML = sound.muted ? '<i class="fa-solid fa-volume-xmark text-red-400"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+}
+
+/* =====================================================================
+   GAME LOOP / LIFECYCLE
+   ===================================================================== */
+function gameLoop() {
+    update();
+    render();
+    if (isPlaying) animationFrameId = requestAnimationFrame(gameLoop);
+}
+function pauseGame() {
+    if (!isPlaying) return;
+    isPaused = true;
+    music.stop();
+    document.getElementById('pauseScreen').classList.remove('hidden');
+}
+function resumeGame() {
+    isPaused = false;
+    document.getElementById('pauseScreen').classList.add('hidden');
+    music.play(run && run.inBoss ? 'boss' : 'stage');
+}
+function showMenu() {
+    isPlaying = false; isPaused = false;
+    cancelAnimationFrame(animationFrameId);
+    music.stop();
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('bossHpWrap').classList.add('hidden');
+    refreshTitleStats();
+    showScreen('startScreen');
+}
+function finishVictory() {
+    isPlaying = false;
+    cancelAnimationFrame(animationFrameId);
+    music.stop();
+    sound.playVictory();
+    save.stars += run.starsEarned;
+    const finalScore = run.scoreP1 + run.scoreP2;
+    if (finalScore > save.highScore) save.highScore = finalScore;
+    persistSave();
+    document.getElementById('victoryScore').innerText = finalScore;
+    document.getElementById('victoryStars').innerText = run.starsEarned;
+    document.getElementById('bossHpWrap').classList.add('hidden');
+    showScreen('victoryScreen');
+}
+function endRun(won) {
+    isPlaying = false;
+    cancelAnimationFrame(animationFrameId);
+    music.stop();
+    sound.playGameOver();
+    save.stars += run.starsEarned;
+    const finalScore = run.scoreP1 + run.scoreP2;
+    if (finalScore > save.highScore) save.highScore = finalScore;
+    persistSave();
+
+    document.getElementById('finalScore').innerText = `${finalScore} 점`;
+    document.getElementById('finalSolved').innerText = `${run.solvedCount} 개`;
+    document.getElementById('finalCombo').innerText = `${run.maxCombo} 회`;
+    document.getElementById('finalStars').innerText = `${run.starsEarned} 개`;
+    document.getElementById('bossHpWrap').classList.add('hidden');
+    showScreen('gameOverScreen');
+}
+
+/* ---------------- Init ---------------- */
+window.onload = function () {
+    setupEventListeners();
+    resizeCanvas();
+    refreshTitleStats();
+};
+</script>
+</body>
+</html>

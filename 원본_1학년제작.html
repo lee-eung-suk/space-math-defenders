@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>우주 수학 방어대 - 초등 1학년 덧셈 뺄셈 슈팅게임</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gamja+Flower&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Jua', sans-serif;
+            background: #0d1117;
+            color: #ffffff;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Animated cosmic background styling */
+        .bg-space {
+            background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+        }
+
+        /* Neon Glow Effect for Math Box & UI */
+        .glow-box {
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.5), inset 0 0 10px rgba(56, 189, 248, 0.3);
+            border: 3px solid #38bdf8;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 10px rgba(255, 225, 100, 0.8), 0 0 20px rgba(255, 150, 0, 0.6);
+        }
+
+        /* Pulsing animation for correct math answers */
+        @keyframes pulse-scale {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+
+        .animate-pulse-fast {
+            animation: pulse-scale 0.8s infinite ease-in-out;
+        }
+
+        /* Screen shake effect on incorrect target hit */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20%, 60% { transform: translate(-8px, 0); }
+            40%, 80% { transform: translate(8px, 0); }
+        }
+
+        .shake-screen {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Canvas styling */
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="bg-space flex flex-col items-center justify-between min-h-screen relative overflow-hidden select-none">
+
+    <!-- Start Menu Modal -->
+    <div id="startScreen" class="absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md transition-all duration-300">
+        <div class="max-w-md w-full bg-slate-900 border-4 border-yellow-400 rounded-3xl p-6 text-center shadow-2xl relative">
+            <div class="text-5xl mb-2 text-yellow-300 glow-text animate-bounce">🚀 우주 수학 방어대</div>
+            <p class="text-sky-300 text-lg mb-6">초등학교 1학년을 위한 신나는 덧셈 뺄셈 슈팅!</p>
+
+            <!-- Game Mode Selection -->
+            <div class="space-y-3 mb-6">
+                <button onclick="startGame('add10')" class="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xl rounded-2xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-3 border-b-4 border-teal-800">
+                    <i class="fa-solid fa-plus text-2xl"></i>
+                    <span>1단계: 10 이하의 덧셈</span>
+                </button>
+                <button onclick="startGame('sub10')" class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-bold text-xl rounded-2xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-3 border-b-4 border-indigo-800">
+                    <i class="fa-solid fa-minus text-2xl"></i>
+                    <span>2단계: 10 이하의 뺄셈</span>
+                </button>
+                <button onclick="startGame('mix20')" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold text-xl rounded-2xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-3 border-b-4 border-pink-800">
+                    <i class="fa-solid fa-star text-2xl"></i>
+                    <span>3단계: 20 이하의 덧셈과 뺄셈</span>
+                </button>
+            </div>
+
+            <!-- How to Play Guide -->
+            <div class="bg-slate-800/80 rounded-xl p-3 text-sm text-slate-300 text-left border border-slate-700">
+                <div class="font-bold text-yellow-400 mb-1 flex items-center gap-2">
+                    <i class="fa-solid fa-gamepad"></i> 조작 방법:
+                </div>
+                <p>• <b>방향키 / 좌우 버튼 / 터치 드래그</b>: 우주선 이동</p>
+                <p>• <b>스페이스바 / 총알 버튼</b>: 미사일 발사!</p>
+                <p>• 정답이 적힌 몬스터를 맞추면 점수 UP!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD Header Overlay -->
+    <div id="hud" class="absolute top-0 left-0 right-0 z-20 p-3 flex flex-col items-center pointer-events-none">
+        <!-- Main Top Status Bar -->
+        <div class="w-full max-w-2xl flex items-center justify-between px-4 py-2 bg-slate-900/80 backdrop-blur border border-slate-700 rounded-2xl pointer-events-auto">
+            <!-- Health Hearts -->
+            <div id="livesContainer" class="flex gap-1 text-2xl text-red-500">
+                <i class="fa-solid fa-heart animate-pulse"></i>
+                <i class="fa-solid fa-heart animate-pulse"></i>
+                <i class="fa-solid fa-heart animate-pulse"></i>
+            </div>
+
+            <!-- Score & Combo -->
+            <div class="text-center">
+                <div class="text-xs text-slate-400">점수</div>
+                <div id="scoreText" class="text-2xl font-bold text-yellow-400 glow-text">0</div>
+            </div>
+
+            <!-- Combo Badge -->
+            <div id="comboContainer" class="text-center opacity-0 transition-opacity">
+                <span id="comboText" class="text-lg font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500">
+                    🔥 2연속!
+                </span>
+            </div>
+
+            <!-- Sound & Pause Button -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSound()" id="soundBtn" class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <button onclick="pauseGame()" class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700">
+                    <i class="fa-solid fa-pause"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Big Math Question Display -->
+        <div class="mt-3 pointer-events-auto">
+            <div class="glow-box bg-slate-900/95 px-8 py-3 rounded-2xl flex items-center justify-center gap-3 border-2 border-cyan-400 shadow-2xl">
+                <span class="text-slate-300 text-lg md:text-xl font-bold">문제:</span>
+                <span id="questionText" class="text-3xl md:text-5xl font-extrabold text-yellow-300 tracking-wider glow-text">
+                    5 + 3 = ?
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game Canvas Container -->
+    <div id="gameContainer" class="relative w-full h-full flex-grow">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Touch Controls for Mobile Devices -->
+    <div id="touchControls" class="absolute bottom-4 left-0 right-0 z-30 flex justify-between items-center px-6 pointer-events-none md:hidden">
+        <!-- Left / Right Movement Buttons -->
+        <div class="flex gap-3 pointer-events-auto">
+            <button id="btnLeft" class="w-16 h-16 bg-slate-800/80 active:bg-cyan-600 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-2xl text-cyan-300 shadow-lg active:scale-95">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <button id="btnRight" class="w-16 h-16 bg-slate-800/80 active:bg-cyan-600 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-2xl text-cyan-300 shadow-lg active:scale-95">
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <!-- Shoot Button -->
+        <div class="pointer-events-auto">
+            <button id="btnFire" class="w-20 h-20 bg-gradient-to-tr from-red-600 to-yellow-500 active:from-red-700 active:to-yellow-600 border-2 border-yellow-300 rounded-full flex items-center justify-center text-3xl text-white shadow-xl active:scale-90">
+                <i class="fa-solid fa-crosshairs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification Overlay for Kid Feedback -->
+    <div id="toast" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none transition-all duration-300 opacity-0 scale-50">
+        <div id="toastContent" class="px-8 py-4 rounded-3xl bg-emerald-500/90 text-white font-extrabold text-3xl md:text-4xl shadow-2xl border-4 border-white text-center glow-text">
+            참 잘했어요! 🌟
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="max-w-md w-full bg-slate-900 border-4 border-pink-500 rounded-3xl p-6 text-center shadow-2xl relative">
+            <div id="gameOverTitle" class="text-4xl font-extrabold text-pink-400 mb-2">게임 종료! 🚀</div>
+            <p id="gameOverSub" class="text-slate-300 mb-6 text-lg">멋진 수학 모험이었어요!</p>
+
+            <div class="bg-slate-800 rounded-2xl p-4 mb-6 border border-slate-700 space-y-2">
+                <div class="flex justify-between text-lg">
+                    <span class="text-slate-400">최종 점수:</span>
+                    <span id="finalScore" class="font-bold text-yellow-400 text-2xl">0 점</span>
+                </div>
+                <div class="flex justify-between text-lg">
+                    <span class="text-slate-400">맞힌 문제 수:</span>
+                    <span id="finalSolved" class="font-bold text-emerald-400 text-xl">0 개</span>
+                </div>
+                <div class="flex justify-between text-lg">
+                    <span class="text-slate-400">최대 연속 정답:</span>
+                    <span id="finalCombo" class="font-bold text-purple-400 text-xl">0 회</span>
+                </div>
+            </div>
+
+            <button onclick="showMenu()" class="w-full py-4 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-extrabold text-xl rounded-2xl shadow-lg transform active:scale-95 transition border-b-4 border-amber-700">
+                <i class="fa-solid fa-house mr-2"></i> 처음으로 돌아가기
+            </button>
+        </div>
+    </div>
+
+    <!-- Pause Modal -->
+    <div id="pauseScreen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="bg-slate-900 border-2 border-cyan-400 rounded-3xl p-8 text-center max-w-xs w-full shadow-2xl">
+            <div class="text-3xl text-cyan-300 mb-6 font-bold">⏸️ 일시 정지</div>
+            <div class="space-y-4">
+                <button onclick="resumeGame()" class="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-lg rounded-xl">
+                    계속하기
+                </button>
+                <button onclick="showMenu()" class="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold text-lg rounded-xl">
+                    메뉴로 가기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio Synthesizer for Retro Sound Effects (No external audio file dependencies)
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            playLaser() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                } catch (e) {}
+            }
+
+            playHitCorrect() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    // Joyful major chord arpeggio
+                    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                    notes.forEach((freq, i) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.08);
+                        gain.gain.setValueAtTime(0.3, this.ctx.currentTime + i * 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.08 + 0.25);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(this.ctx.currentTime + i * 0.08);
+                        osc.stop(this.ctx.currentTime + i * 0.08 + 0.25);
+                    });
+                } catch (e) {}
+            }
+
+            playHitWrong() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+                } catch (e) {}
+            }
+
+            playGameOver() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const notes = [400, 350, 300, 250];
+                    notes.forEach((freq, i) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.15);
+                        gain.gain.setValueAtTime(0.2, this.ctx.currentTime + i * 0.15);
+                        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.15 + 0.2);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(this.ctx.currentTime + i * 0.15);
+                        osc.stop(this.ctx.currentTime + i * 0.15 + 0.2);
+                    });
+                } catch (e) {}
+            }
+        }
+
+        const sound = new SoundFX();
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameMode = 'add10'; // 'add10', 'sub10', 'mix20'
+        let isPlaying = false;
+        let isPaused = false;
+        let animationFrameId = null;
+
+        let score = 0;
+        let lives = 3;
+        let combo = 0;
+        let maxCombo = 0;
+        let solvedCount = 0;
+
+        let currentQuestion = { num1: 0, num2: 0, operator: '+', answer: 0 };
+
+        // Game Entities
+        let player = {
+            x: 0,
+            y: 0,
+            width: 60,
+            height: 60,
+            speed: 8,
+            vx: 0
+        };
+
+        let bullets = [];
+        let targets = [];
+        let particles = [];
+        let backgroundStars = [];
+
+        // Key states
+        const keys = {
+            left: false,
+            right: false,
+            fire: false
+        };
+
+        let lastFireTime = 0;
+        const fireCooldown = 250; // ms between laser shots
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            player.y = canvas.height - 90;
+            if (player.x === 0) {
+                player.x = canvas.width / 2 - player.width / 2;
+            }
+            initBackgroundStars();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function initBackgroundStars() {
+            backgroundStars = [];
+            const count = Math.floor((canvas.width * canvas.height) / 3000);
+            for (let i = 0; i < count; i++) {
+                backgroundStars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 0.5,
+                    speed: Math.random() * 0.8 + 0.2,
+                    alpha: Math.random()
+                });
+            }
+        }
+
+        // Generates Grade 1 appropriate math questions
+        function generateMathQuestion() {
+            let n1 = 0, n2 = 0, op = '+', ans = 0;
+
+            if (gameMode === 'add10') {
+                // Addition with sum <= 10
+                ans = Math.floor(Math.random() * 9) + 2; // 2 ~ 10
+                n1 = Math.floor(Math.random() * (ans - 1)) + 1;
+                n2 = ans - n1;
+                op = '+';
+            } else if (gameMode === 'sub10') {
+                // Subtraction with minuend <= 10
+                n1 = Math.floor(Math.random() * 9) + 2; // 2 ~ 10
+                n2 = Math.floor(Math.random() * (n1 - 1)) + 1;
+                op = '-';
+                ans = n1 - n2;
+            } else {
+                // Mixed Addition & Subtraction (Sums/Minuends up to 20)
+                const isAdd = Math.random() > 0.5;
+                if (isAdd) {
+                    ans = Math.floor(Math.random() * 12) + 5; // 5 ~ 16
+                    n1 = Math.floor(Math.random() * (ans - 2)) + 1;
+                    n2 = ans - n1;
+                    op = '+';
+                } else {
+                    n1 = Math.floor(Math.random() * 12) + 6; // 6 ~ 18
+                    n2 = Math.floor(Math.random() * (n1 - 2)) + 1;
+                    op = '-';
+                    ans = n1 - n2;
+                }
+            }
+
+            currentQuestion = { num1: n1, num2: n2, operator: op, answer: ans };
+            document.getElementById('questionText').innerText = `${n1} ${op} ${n2} = ?`;
+
+            spawnTargets(ans);
+        }
+
+        function spawnTargets(correctAnswer) {
+            targets = [];
+            const targetCount = 3; // 3 flying targets
+            const targetWidth = 70;
+            const targetHeight = 70;
+            const sectionWidth = canvas.width / targetCount;
+
+            // Generate wrong options that are reasonable (close numbers, non-negative)
+            let wrongOptions = new Set();
+            while (wrongOptions.size < targetCount - 1) {
+                let offset = (Math.floor(Math.random() * 5) + 1) * (Math.random() > 0.5 ? 1 : -1);
+                let wrongVal = correctAnswer + offset;
+                if (wrongVal >= 0 && wrongVal !== correctAnswer && wrongVal <= 20) {
+                    wrongOptions.add(wrongVal);
+                }
+            }
+
+            let options = [correctAnswer, ...Array.from(wrongOptions)];
+            // Shuffle choices
+            options.sort(() => Math.random() - 0.5);
+
+            // Monster cute color palettes
+            const colors = [
+                { bg: '#ef4444', border: '#fca5a5', shadow: 'rgba(239, 68, 68, 0.6)' }, // Red
+                { bg: '#3b82f6', border: '#93c5fd', shadow: 'rgba(59, 130, 246, 0.6)' }, // Blue
+                { bg: '#10b981', border: '#6ee7b7', shadow: 'rgba(16, 185, 129, 0.6)' }, // Green
+                { bg: '#a855f7', border: '#d8b4fe', shadow: 'rgba(168, 85, 247, 0.6)' }  // Purple
+            ];
+
+            for (let i = 0; i < targetCount; i++) {
+                let posX = sectionWidth * i + (sectionWidth / 2 - targetWidth / 2);
+                // Slight random offset
+                posX += (Math.random() * 20 - 10);
+                posX = Math.max(10, Math.min(canvas.width - targetWidth - 10, posX));
+
+                const colorObj = colors[i % colors.length];
+
+                targets.push({
+                    x: posX,
+                    y: -100 - (Math.random() * 40),
+                    width: targetWidth,
+                    height: targetHeight,
+                    value: options[i],
+                    isCorrect: options[i] === correctAnswer,
+                    speed: Math.random() * 0.4 + 0.8, // gentle speed for grade 1
+                    color: colorObj,
+                    wobbleOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 25; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 6 + 2;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 5 + 2,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.015
+                });
+            }
+        }
+
+        function setupEventListeners() {
+            // Keyboard controls
+            window.addEventListener('keydown', (e) => {
+                sound.init();
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+                if (e.key === ' ' || e.key === 'Spacebar') {
+                    keys.fire = true;
+                    e.preventDefault();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+                if (e.key === ' ' || e.key === 'Spacebar') keys.fire = false;
+            });
+
+            // Onscreen Touch Controls
+            const btnLeft = document.getElementById('btnLeft');
+            const btnRight = document.getElementById('btnRight');
+            const btnFire = document.getElementById('btnFire');
+
+            btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); sound.init(); keys.left = true; });
+            btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
+
+            btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); sound.init(); keys.right = true; });
+            btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+
+            btnFire.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                sound.init();
+                shootBullet();
+            });
+
+            // Touch Drag / Mouse movement for player spaceship
+            let isDragging = false;
+            canvas.addEventListener('mousedown', (e) => {
+                sound.init();
+                isDragging = true;
+                movePlayerToMouse(e.clientX);
+            });
+            canvas.addEventListener('mousemove', (e) => {
+                if (isDragging) movePlayerToMouse(e.clientX);
+            });
+            window.addEventListener('mouseup', () => isDragging = false);
+
+            canvas.addEventListener('touchstart', (e) => {
+                sound.init();
+                if (e.touches.length > 0) {
+                    movePlayerToMouse(e.touches[0].clientX);
+                    shootBullet();
+                }
+            }, { passive: true });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) {
+                    movePlayerToMouse(e.touches[0].clientX);
+                }
+            }, { passive: true });
+        }
+
+        function movePlayerToMouse(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            const targetX = clientX - rect.left - player.width / 2;
+            player.x = Math.max(0, Math.min(canvas.width - player.width, targetX));
+        }
+
+        function shootBullet() {
+            const now = Date.now();
+            if (now - lastFireTime >= fireCooldown) {
+                bullets.push({
+                    x: player.x + player.width / 2 - 4,
+                    y: player.y,
+                    width: 8,
+                    height: 20,
+                    speed: 12
+                });
+                sound.playLaser();
+                lastFireTime = now;
+            }
+        }
+
+        function update() {
+            if (!isPlaying || isPaused) return;
+
+            // Move Player with keyboard
+            if (keys.left) player.x -= player.speed;
+            if (keys.right) player.x += player.speed;
+            if (keys.fire) shootBullet();
+
+            // Clamp player within boundaries
+            player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+            // Update Background Stars
+            backgroundStars.forEach(star => {
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+            });
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                if (bullets[i].y < -20) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update Particle Effects
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Update Target Monsters
+            let resetQuestionNeeded = false;
+
+            for (let i = targets.length - 1; i >= 0; i--) {
+                const target = targets[i];
+                target.y += target.speed;
+                target.wobbleOffset += 0.05;
+                target.x += Math.sin(target.wobbleOffset) * 0.8; // Floating oscillation
+
+                // Bullet Collision Detection
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const bullet = bullets[j];
+                    if (
+                        bullet.x < target.x + target.width &&
+                        bullet.x + bullet.width > target.x &&
+                        bullet.y < target.y + target.height &&
+                        bullet.y + bullet.height > target.y
+                    ) {
+                        // Collision detected!
+                        bullets.splice(j, 1);
+
+                        if (target.isCorrect) {
+                            // CORRECT ANSWER HIT!
+                            sound.playHitCorrect();
+                            createExplosion(target.x + target.width / 2, target.y + target.height / 2, '#38bdf8');
+                            createExplosion(target.x + target.width / 2, target.y + target.height / 2, '#facc15');
+
+                            score += 100 + combo * 20;
+                            combo++;
+                            solvedCount++;
+                            if (combo > maxCombo) maxCombo = combo;
+
+                            showToast("참 잘했어요! 🌟", true);
+                            updateHUD();
+                            resetQuestionNeeded = true;
+                        } else {
+                            // WRONG ANSWER HIT
+                            sound.playHitWrong();
+                            createExplosion(target.x + target.width / 2, target.y + target.height / 2, '#ef4444');
+
+                            combo = 0;
+                            updateHUD();
+                            showToast("다시 생각해보세요! 💡", false);
+                            document.body.classList.add('shake-screen');
+                            setTimeout(() => document.body.classList.remove('shake-screen'), 400);
+
+                            // Remove wrong target so player can try remaining ones
+                            targets.splice(i, 1);
+                        }
+                        break;
+                    }
+                }
+
+                // If target reaches bottom
+                if (target && target.y > canvas.height - 40) {
+                    if (target.isCorrect) {
+                        // Player missed the correct target
+                        lives--;
+                        combo = 0;
+                        updateHUD();
+                        showToast("아쉬워요! 다음 문제! 🚀", false);
+                        resetQuestionNeeded = true;
+                        if (lives <= 0) {
+                            endGame();
+                            return;
+                        }
+                    } else {
+                        // Remove missed wrong target
+                        targets.splice(i, 1);
+                    }
+                }
+            }
+
+            if (resetQuestionNeeded) {
+                generateMathQuestion();
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Background Stars
+            ctx.fillStyle = '#ffffff';
+            backgroundStars.forEach(star => {
+                ctx.globalAlpha = star.alpha;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 2. Draw Particles
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 3. Draw Bullets
+            bullets.forEach(b => {
+                ctx.save();
+                ctx.fillStyle = '#facc15';
+                ctx.shadowColor = '#f59e0b';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.roundRect(b.x, b.y, b.width, b.height, 4);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 4. Draw Player Rocket
+            ctx.save();
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+
+            // Rocket Thruster Flame Animation
+            const flameHeight = Math.random() * 15 + 10;
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.moveTo(-10, player.height / 2);
+            ctx.lineTo(0, player.height / 2 + flameHeight);
+            ctx.lineTo(10, player.height / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Rocket Body SVG Drawing
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.moveTo(0, -player.height / 2);
+            ctx.lineTo(player.width / 2, player.height / 2 - 10);
+            ctx.lineTo(-player.width / 2, player.height / 2 - 10);
+            ctx.closePath();
+            ctx.fill();
+
+            // Rocket Cockpit Glass
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(0, -5, 12, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rocket Wings
+            ctx.fillStyle = '#e11d48';
+            ctx.beginPath();
+            ctx.moveTo(-player.width / 2, player.height / 2 - 10);
+            ctx.lineTo(-player.width / 2 - 10, player.height / 2 + 5);
+            ctx.lineTo(-player.width / 2 + 10, player.height / 2 - 10);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(player.width / 2, player.height / 2 - 10);
+            ctx.lineTo(player.width / 2 + 10, player.height / 2 + 5);
+            ctx.lineTo(player.width / 2 - 10, player.height / 2 - 10);
+            ctx.fill();
+
+            ctx.restore();
+
+            // 5. Draw Target Monsters
+            targets.forEach(t => {
+                ctx.save();
+                ctx.translate(t.x + t.width / 2, t.y + t.height / 2);
+
+                // Monster Glow
+                ctx.shadowColor = t.color.shadow;
+                ctx.shadowBlur = 15;
+
+                // Monster Bubble Body
+                ctx.fillStyle = t.color.bg;
+                ctx.strokeStyle = t.color.border;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(0, 0, t.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Cute Monster Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(-12, -10, 8, 0, Math.PI * 2);
+                ctx.arc(12, -10, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(-10, -10, 4, 0, Math.PI * 2);
+                ctx.arc(14, -10, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Monster Number Answer Text
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 28px Jua';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(t.value, 0, 12);
+
+                ctx.restore();
+            });
+        }
+
+        function gameLoop() {
+            update();
+            render();
+            if (isPlaying) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('scoreText').innerText = score;
+
+            // Lives
+            const livesContainer = document.getElementById('livesContainer');
+            livesContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < lives) {
+                    livesContainer.innerHTML += '<i class="fa-solid fa-heart animate-pulse"></i>';
+                } else {
+                    livesContainer.innerHTML += '<i class="fa-regular fa-heart opacity-30"></i>';
+                }
+            }
+
+            // Combo display
+            const comboContainer = document.getElementById('comboContainer');
+            if (combo >= 2) {
+                document.getElementById('comboText').innerText = `🔥 ${combo}연속 정답!`;
+                comboContainer.classList.remove('opacity-0');
+            } else {
+                comboContainer.classList.add('opacity-0');
+            }
+        }
+
+        function showToast(msg, isSuccess) {
+            const toast = document.getElementById('toast');
+            const content = document.getElementById('toastContent');
+            content.innerText = msg;
+
+            if (isSuccess) {
+                content.className = "px-8 py-4 rounded-3xl bg-emerald-500/90 text-white font-extrabold text-2xl md:text-4xl shadow-2xl border-4 border-white text-center glow-text";
+            } else {
+                content.className = "px-8 py-4 rounded-3xl bg-rose-500/90 text-white font-extrabold text-2xl md:text-4xl shadow-2xl border-4 border-white text-center glow-text";
+            }
+
+            toast.classList.remove('opacity-0', 'scale-50');
+            toast.classList.add('opacity-100', 'scale-100');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'scale-100');
+                toast.classList.add('opacity-0', 'scale-50');
+            }, 1000);
+        }
+
+        function toggleSound() {
+            sound.muted = !sound.muted;
+            const soundBtn = document.getElementById('soundBtn');
+            if (sound.muted) {
+                soundBtn.innerHTML = '<i class="fa-solid fa-volume-xmark text-red-400"></i>';
+            } else {
+                soundBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+            }
+        }
+
+        function startGame(mode) {
+            sound.init();
+            gameMode = mode;
+            score = 0;
+            lives = 3;
+            combo = 0;
+            maxCombo = 0;
+            solvedCount = 0;
+            bullets = [];
+            targets = [];
+            particles = [];
+
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('pauseScreen').classList.add('hidden');
+
+            resizeCanvas();
+            updateHUD();
+            generateMathQuestion();
+
+            isPlaying = true;
+            isPaused = false;
+            cancelAnimationFrame(animationFrameId);
+            gameLoop();
+        }
+
+        function pauseGame() {
+            if (!isPlaying) return;
+            isPaused = true;
+            document.getElementById('pauseScreen').classList.remove('hidden');
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            document.getElementById('pauseScreen').classList.add('hidden');
+        }
+
+        function showMenu() {
+            isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+            document.getElementById('startScreen').classList.remove('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('pauseScreen').classList.add('hidden');
+        }
+
+        function endGame() {
+            isPlaying = false;
+            sound.playGameOver();
+
+            document.getElementById('finalScore').innerText = `${score} 점`;
+            document.getElementById('finalSolved').innerText = `${solvedCount} 개`;
+            document.getElementById('finalCombo').innerText = `${maxCombo} 회`;
+
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        // Initialize setup on window load
+        window.onload = function() {
+            setupEventListeners();
+            resizeCanvas();
+        };
+    </script>
+</body>
+</html>
